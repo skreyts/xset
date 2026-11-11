@@ -1,6 +1,6 @@
 // Xset: работа без интернета. Свои файлы — сначала из сети (свежая версия), без сети — из кэша.
 // Шрифты Google — из кэша (не меняются). При выпуске новой версии поднять VER.
-const VER = 'xset-1.4.1';
+const VER = 'xset-1.5';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

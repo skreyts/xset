@@ -945,7 +945,16 @@ function settingsSheet(){
       <button class="set-row" data-act="export"><div><b style="color:var(--tint)">Сохранить копию</b><small>${n} ${plural(n,'запись','записи','записей')} — файлом на телефон или в облако</small></div></button>
       <button class="set-row" data-act="import"><div><b style="color:var(--tint)">Загрузить из файла</b><small>Копия Xset или история</small></div></button>
     </div>
-    <div class="foot">Записи хранятся только на этом телефоне. Время от времени сохраняйте копию.</div>
+    <div class="foot">${G.on?'Записи хранятся на телефоне и в вашей Google-таблице «Xset».':'Записи хранятся только на этом телефоне. Войдите через Google или время от времени сохраняйте копию.'}</div>
+    <div class="cap">Google</div>
+    <div class="group">${G.on?`
+      <div class="set-row"><div><b>${esc(G.email||'Google-аккаунт')}</b><small id="g-st">${gStatusText()}</small></div></div>
+      ${G.err==='auth'?`<button class="set-row" data-act="g-in"><div><b style="color:var(--tint)">Войти снова</b><small>Вход устарел — записи ждут на телефоне</small></div></button>`
+        :`<button class="set-row" data-act="g-sync"><div><b style="color:var(--tint)">Синхронизировать</b></div></button>`}
+      ${G.sheet?`<button class="set-row" data-act="g-open"><div><b style="color:var(--tint)">Открыть таблицу</b><small>«Xset» в Google Таблицах</small></div></button>`:''}
+      <button class="set-row" data-act="g-out"><div><b style="color:var(--danger)">Выйти</b></div></button>`
+    :`<button class="set-row" data-act="g-in"><div><b style="color:var(--tint)">Войти через Google</b><small>Записи будут в вашей Google-таблице «Xset» — откроются на любом телефоне</small></div></button>`}
+    </div>
     <div class="foot" style="text-align:center;margin-top:10px">Xset ${APP_VER}</div>`);
 }
 
@@ -1075,7 +1084,7 @@ const keepNote = ()=>{ const i=document.getElementById('ed-note'); if(i&&edit) e
 
 /* Новая тренировка: типы по кругу. Сверху — тип, который дольше всего не делали (из тех, что в ходу последние 90 дней). */
 function copyWorkout(src, date){
-  return {id:++uid,date,note:'',cardio:[],title:src?src.title:'Тренировка',
+  return {id:nextId(),date,note:'',cardio:[],title:src?src.title:'Тренировка',
     ex:src?src.ex.map(e=>({name:e.name,sets:planSets(e.sets)})).filter(e=>e.sets.length):[]};
 }
 /* Программы: название + дни, у дня — список упражнений. Цифры подставляются из последнего раза. */
@@ -1092,7 +1101,7 @@ let activeProg = 'p1', progEdit = null, newDate = TODAY, progFromTab = false;
 const P = id=>programs.find(p=>p.id===id);
 function fromDay(day, date){
   const probe = {id:Infinity, date};
-  return {id:++uid,date,note:'',cardio:[],title:day.name,ex:day.ex.map(n=>{
+  return {id:nextId(),date,note:'',cardio:[],title:day.name,ex:day.ex.map(n=>{
     const p=prevFor(n,probe), pe=p&&p.ex.find(x=>x.name===n);
     return {name:n,sets:pe?planSets(pe.sets):[{r:10,w:0,done:false},{r:10,w:0,done:false},{r:10,w:0,done:false}]};
   })};
@@ -1336,7 +1345,7 @@ document.addEventListener('click', ev=>{
       programs=programs.filter(p=>p.id!==progEdit.id); if(activeProg===progEdit.id) activeProg=programs[0]?programs[0].id:null;
       if(progFromTab){ close(); st.screen='progs'; render(); } else progListSheet(); break;
     case 'pg-save': { syncProg(); const e=progEdit; e.name=e.name.trim()||'Моя программа'; e.days=e.days.filter(d=>d.name.trim()||d.ex.length).map((d,i)=>({name:d.name.trim()||`День ${i+1}`,ex:d.ex}));
-      delete e.confirmDel; if(e.id){ programs=programs.map(p=>p.id===e.id?e:p); } else { e.id='p'+(++uid); programs.push(e); activeProg=e.id; }
+      delete e.confirmDel; if(e.id){ programs=programs.map(p=>p.id===e.id?e:p); } else { e.id='p'+nextId(); programs.push(e); activeProg=e.id; }
       if(progFromTab){ close(); st.prog=e.id; st.screen='prog'; render(); scrollTo(0,0); } else progListSheet(); break; }
     case 'add-ex': st.pickFor=null; pickSheet(); setTimeout(()=>{const i=document.getElementById('pick-q'); if(i) i.focus({preventScroll:true});},50); break;
     case 'pick-new': case 'pick-ex': {
@@ -1379,11 +1388,26 @@ document.addEventListener('keydown',e=>{
 
 /* ЭТАП 2: ХРАНЕНИЕ НА ТЕЛЕФОНЕ. Всё состояние — одним JSON в localStorage (ключ xset-data), пишется после каждого действия.
    Копия = тот же JSON файлом (Настройки → «Сохранить копию»), загрузка — оттуда же; принимает и data/history.json (массив тренировок). */
-const APP_VER = '1.4';
+const APP_VER = '1.5';
 const DB_KEY = 'xset-data';
+/* ЭТАП 3 (облако): для слияния телефонов у тренировки есть метка изменения upd, у стёртых — tomb[id]=когда стёрта,
+   у настроек (программы, база, архив…) — общая метка setUpd. Метки ставит save() сам, сравнивая с прошлым видом (known). */
+let tomb = {}, setUpd = 0, known = new Map(), knownSet = '';
+/* id новых записей — по времени, чтобы два телефона не выдали одинаковый */
+function nextId(){ return uid = Math.max(uid+1, Date.now()); }
+const wKey = w => JSON.stringify(w, (k,v)=>k==='upd'?undefined:v);
+const setKey = ()=>JSON.stringify([programs, activeProg, mineLib, cardioLib, CARDIO_STD, STD, CMODE, [...archived], [...hidden]]);
+function rebaseKnown(){ known = new Map(workouts.map(w=>[w.id, wKey(w)])); knownSet = setKey(); }
+function stampChanges(){
+  const now = Date.now(), ids = new Set(); let ch = false;
+  workouts.forEach(w=>{ ids.add(w.id); const k = wKey(w); if(known.get(w.id)!==k){ w.upd = now; known.set(w.id, k); delete tomb[w.id]; ch = true; } });
+  known.forEach((k,id)=>{ if(!ids.has(id)){ tomb[id] = now; known.delete(id); ch = true; } });
+  const s = setKey(); if(s!==knownSet){ setUpd = now; knownSet = s; ch = true; }
+  return ch;
+}
 function snapshot(){
   return {app:'xset', v:1, saved:new Date().toISOString(), uid, workouts, programs, activeProg, mineLib,
-    cardioLib, cardioStd:[...CARDIO_STD], std:STD, cmode:CMODE, archived:[...archived], hidden:[...hidden]};
+    cardioLib, cardioStd:[...CARDIO_STD], std:STD, cmode:CMODE, archived:[...archived], hidden:[...hidden], tomb, setUpd};
 }
 function applyData(d){
   if(Array.isArray(d)) d = {workouts:d};          /* история без обёртки (data/history.json) */
@@ -1393,6 +1417,8 @@ function applyData(d){
   let mx = Math.max(1000, d.uid||0, ...workouts.map(w=>w.id));
   workouts.forEach(w=>{ if(!w.id) w.id=++mx; });
   uid = mx;
+  if(d.tomb && typeof d.tomb==='object') for(const k in d.tomb) tomb[k] = Math.max(tomb[k]||0, +d.tomb[k]||0);
+  setUpd = Math.max(setUpd, +d.setUpd||0);
   if(d.std){ Object.keys(STD).forEach(k=>delete STD[k]); Object.assign(STD, d.std); STD_ALL.splice(0, STD_ALL.length, ...Object.values(STD).flat()); }
   if(d.cardioStd) CARDIO_STD.splice(0, CARDIO_STD.length, ...d.cardioStd);
   if(d.cmode) Object.assign(CMODE, d.cmode);
@@ -1425,10 +1451,12 @@ let saveErr = false, noSave = false;
 function save(){
   if(noSave) return;
   try{ sessionStorage.setItem('xset-st', JSON.stringify({screen:st.screen,open:st.open,from:st.from,prog:st.prog,ex:st.ex,exFrom:st.exFrom,libTab:st.libTab,calMonth:st.calMonth,calDay:st.calDay,y:scrollY})); }catch(e){}
+  if(stampChanges()) gDirty();
   try{ localStorage.setItem(DB_KEY, JSON.stringify(snapshot())); saveErr=false; }
   catch(e){ if(!saveErr){ saveErr=true; toast('Не удалось сохранить — сделайте копию в Настройках'); } }
 }
 try{ const raw = localStorage.getItem(DB_KEY); if(raw) applyData(JSON.parse(raw)); }catch(e){ console.error(e); }
+rebaseKnown();
 let restoreY = 0;
 try{ const v = JSON.parse(sessionStorage.getItem('xset-st')||'null'); if(v){ Object.assign(st, v); restoreY = v.y||0; delete st.y; } }catch(e){}
 /* просим браузер не удалять данные при нехватке места */
@@ -1440,7 +1468,7 @@ document.addEventListener('click', ()=>{ clearTimeout(saveT); saveT = setTimeout
 addEventListener('pagehide', save);
 /* данные поменяли в другой вкладке/окне того же адреса — подхватить, а не затереть */
 /* перерисовка БЕЗ записи — иначе два окна бесконечно пересохраняли друг друга (и сбивали свайп) */
-addEventListener('storage', e=>{ if(e.key===DB_KEY && e.newValue){ noSave=true; try{ applyData(JSON.parse(e.newValue)); if(!document.querySelector('.sw-front.open')&&!$layer.innerHTML.trim()&&document.activeElement.id!=='daynote') render(); }catch(x){} finally{ noSave=false; } } });
+addEventListener('storage', e=>{ if(e.key===DB_KEY && e.newValue){ noSave=true; try{ applyData(JSON.parse(e.newValue)); rebaseKnown(); if(!document.querySelector('.sw-front.open')&&!$layer.innerHTML.trim()&&document.activeElement.id!=='daynote') render(); }catch(x){} finally{ noSave=false; } } });
 document.addEventListener('visibilitychange', ()=>{
   if(document.hidden){ save(); return; }
   const t = isoNow(); if(t!==TODAY){ if(st.calDay===TODAY) st.calDay=t; if(st.calMonth===TODAY.slice(0,7)) st.calMonth=t.slice(0,7); TODAY=t; if(!$layer.innerHTML.trim()) render(); }
@@ -1479,6 +1507,181 @@ function importData(){
   };
   inp.click();
 }
+/* ЭТАП 3: ОБЛАКО. Google-таблица «Xset» в Drive пользователя: лист «Подходы» (читается глазами) + скрытый «_data» (весь JSON кусками).
+   Вход — переход на страницу Google и обратно (OAuth implicit, без сервера и без всплывающих окон); доступ только drive.file —
+   приложение видит лишь свои файлы. Токен живёт час; потом при открытии приложения — тихий переход за новым (prompt=none).
+   Синк: при открытии, через 3 с после изменения, при появлении сети, по кнопке. Слияние — по id и меткам upd/tomb/setUpd. */
+const G_CLIENT = '85733692086-l6h8h1kln3vgigjm29qq1hi35i4r5svl.apps.googleusercontent.com';
+const G_SCOPE = 'https://www.googleapis.com/auth/drive.file email';
+const G_KEY = 'xset-google';
+const G_REDIR = location.origin + location.pathname.replace(/index\.html$/, '');
+const SHEETS = 'https://sheets.googleapis.com/v4/spreadsheets';
+let G = {}; try{ G = JSON.parse(localStorage.getItem(G_KEY)||'{}')||{}; }catch(e){}
+const gSave = ()=>{ try{ localStorage.setItem(G_KEY, JSON.stringify(G)); }catch(e){} };
+const gTokOk = ()=>!!(G.tok && G.exp > Date.now());
+let gBusy = false, gAgain = false, gT = null;
+
+function gAuth(prompt){
+  save();
+  const p = new URLSearchParams({client_id:G_CLIENT, redirect_uri:G_REDIR, response_type:'token', scope:G_SCOPE,
+    include_granted_scopes:'true', state: prompt==='none' ? 'xset-s' : 'xset'});
+  if(prompt) p.set('prompt', prompt);
+  if(G.email) p.set('login_hint', G.email);
+  G.tried = Date.now(); gSave();
+  location.replace('https://accounts.google.com/o/oauth2/v2/auth?' + p);
+}
+/* вернулись от Google: токен (или ошибка) — в адресе после # */
+let gJustIn = false;
+if(/(access_token|error)=/.test(location.hash)){
+  const h = new URLSearchParams(location.hash.slice(1));
+  history.replaceState(null, '', location.pathname + location.search);
+  if((h.get('state')||'').startsWith('xset')){
+    const silent = h.get('state')==='xset-s';
+    if(h.get('access_token') && (h.get('scope')||'').includes('drive.file')){
+      gJustIn = !G.on;
+      Object.assign(G, {tok:h.get('access_token'), exp:Date.now()+((+h.get('expires_in')||3600)-60)*1000, on:true, err:null}); gSave();
+    } else if(h.get('access_token')){
+      setTimeout(()=>toast('Нужно разрешить доступ к файлам Xset в Google Drive'), 400);
+      if(G.on){ G.err='auth'; gSave(); }
+    } else if(silent){ G.err='auth'; gSave(); }
+    else setTimeout(()=>toast('Вход отменён'), 400);
+  }
+}
+/* токен истёк — при открытии приложения тихо сходить за новым (не чаще раза в 10 минут и не по кругу) */
+function gAutoAuth(){
+  if(G.on && !gTokOk() && G.err!=='auth' && navigator.onLine && !uiBusy() && Date.now()-(G.tried||0) > 10*60e3) gAuth('none');
+}
+
+async function gApi(url, opt={}){
+  const r = await fetch(url, {...opt, headers:{Authorization:'Bearer '+G.tok, 'Content-Type':'application/json'}});
+  if(r.status===401){ G.tok=null; gSave(); throw {auth:true}; }
+  if(!r.ok) throw {status:r.status, text:await r.text()};
+  return r.status===204 ? null : r.json();
+}
+async function gTabs(id){
+  const s = await gApi(`${SHEETS}/${id}?fields=sheets.properties.title`);
+  const have = s.sheets.map(x=>x.properties.title), req = [];
+  if(!have.includes('Подходы')) req.push({addSheet:{properties:{title:'Подходы', gridProperties:{frozenRowCount:1}}}});
+  if(!have.includes('_data')) req.push({addSheet:{properties:{title:'_data', hidden:true}}});
+  if(req.length) await gApi(`${SHEETS}/${id}:batchUpdate`, {method:'POST', body:JSON.stringify({requests:req})});
+}
+/* своя таблица: запомненная → найти в Drive (видны только файлы Xset) → создать */
+async function gSheet(){
+  if(G.sheet){
+    try{ await gTabs(G.sheet); return G.sheet; }
+    catch(e){ if(e.auth || (e.status!==404 && e.status!==403)) throw e; G.sheet=null; gSave(); }
+  }
+  const q = encodeURIComponent("name='Xset' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false");
+  const f = await gApi(`https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=createdTime&fields=files(id)`);
+  if(f.files && f.files.length){ G.sheet = f.files[0].id; gSave(); await gTabs(G.sheet); return G.sheet; }
+  const s = await gApi(SHEETS, {method:'POST', body:JSON.stringify({properties:{title:'Xset', locale:'ru_RU'},
+    sheets:[{properties:{title:'Подходы', gridProperties:{frozenRowCount:1}}}, {properties:{title:'_data', hidden:true}}]})});
+  G.sheet = s.spreadsheetId; gSave(); return G.sheet;
+}
+/* лист «Подходы»: строка = подход, новые тренировки сверху */
+function gRows(ws){
+  const R = [['Дата','Тренировка','Упражнение','Подход','Повторы','Вес','Заметка']];
+  const dd = s=>String(s||'').split('-').reverse().join('.');
+  [...ws].sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id).forEach(w=>{
+    const D = dd(w.date), T = w.title||'';
+    if(w.note) R.push([D, T, '', '', '', '', w.note]);
+    (w.ex||[]).forEach(e=>(e.sets||[]).forEach((s,i)=>{
+      let wt = s.w || '';
+      if(s.b && s.b.length) wt = `${MODE_NAMES[s.m||'band']||''}: ${s.b.map(c=>BAND_NAMES[c]||c).join(' + ')}${s.w?` + ${s.w} кг`:''}`;
+      R.push([D, T, e.name, i+1, s.r ?? '', wt, [i===0?e.note:'', s.n].filter(Boolean).join('; ')]);
+    }));
+    (w.cardio||[]).forEach(k=>R.push([D, T, k.kind, '', '', '', [k.km?k.km+' км':'', k.min?k.min+' мин':''].filter(Boolean).join(', ')]));
+  });
+  return R;
+}
+async function gWrite(id, d){
+  const json = JSON.stringify(d), ch = [];
+  for(let i=0; i<json.length;){ let j = Math.min(json.length, i+40000); if(j<json.length && /[\uD800-\uDBFF]/.test(json[j-1])) j--; ch.push([json.slice(i,j)]); i = j; }
+  const rows = gRows(d.workouts);
+  await gApi(`${SHEETS}/${id}/values:batchUpdate`, {method:'POST', body:JSON.stringify({valueInputOption:'RAW',
+    data:[{range:"'_data'!A1", values:ch}, {range:"'Подходы'!A1", values:rows}]})});
+  await gApi(`${SHEETS}/${id}/values:batchClear`, {method:'POST', body:JSON.stringify({ranges:[`'_data'!A${ch.length+1}:A`, `'Подходы'!A${rows.length+1}:G`]})});
+}
+/* слияние: тренировка — где новее upd; стёртая (tomb) не возвращается; настройки целиком — где новее setUpd.
+   Новый телефон (ещё ни разу не синхронизировался) при равных метках берёт настройки из облака. */
+function gMerge(loc, rem){
+  if(!rem || !Array.isArray(rem.workouts)) return loc;
+  const tb = {...(loc.tomb||{})};
+  for(const k in rem.tomb||{}) tb[k] = Math.max(tb[k]||0, +rem.tomb[k]||0);
+  const by = new Map();
+  [...rem.workouts, ...loc.workouts].forEach(w=>{ const o = by.get(w.id); if(!o || (w.upd||0) >= (o.upd||0)) by.set(w.id, w); });
+  const ws = [...by.values()].filter(w=>!(tb[w.id] >= (w.upd||0))).sort((a,b)=>a.id-b.id);
+  const ru = +rem.setUpd||0, lu = +loc.setUpd||0;
+  const S = (ru > lu || (ru===lu && !G.synced)) ? rem : loc;
+  return {...S, app:'xset', v:1, uid:Math.max(+loc.uid||0, +rem.uid||0), workouts:ws, tomb:tb, setUpd:Math.max(ru, lu), saved:new Date().toISOString()};
+}
+const gCk = d=>JSON.stringify({...d, saved:0});
+/* не подменять данные под пальцем: открыта шторка (кроме Настроек), идёт ввод, открыт свайп */
+function uiBusy(){
+  if($layer.innerHTML.trim() && !document.getElementById('g-st')) return true;
+  const a = document.activeElement; if(a && (a.isContentEditable || /INPUT|TEXTAREA/.test(a.tagName))) return true;
+  return !!document.querySelector('.sw-front.open');
+}
+function gDirty(){
+  if(!G.on) return;
+  if(gBusy){ gAgain = true; return; }
+  clearTimeout(gT); gT = setTimeout(gSync, 3000);
+}
+async function gSync(manual){
+  if(!G.on || !navigator.onLine){ gStatus(); return; }
+  if(!gTokOk()){ if(manual) gAuth(G.err==='auth' ? 'select_account' : 'none'); return; }
+  if(gBusy){ gAgain = true; return; }
+  gBusy = true; gStatus('sync');
+  try{
+    const id = await gSheet();
+    if(!G.email){ try{ const u = await gApi('https://www.googleapis.com/oauth2/v3/userinfo'); G.email = u.email; gSave(); }catch(e){} }
+    const r = await gApi(`${SHEETS}/${id}/values/${encodeURIComponent("'_data'!A:A")}`);
+    const txt = (r.values||[]).map(x=>x[0]||'').join('');
+    let rem = null; if(txt){ try{ rem = JSON.parse(txt); }catch(e){ console.error('xset: _data повреждён', e); } }
+    if(uiBusy()){ gAgain = true; return; }
+    save();
+    const loc = snapshot(), m = gMerge(loc, rem);
+    if(gCk(m)!==gCk(loc)){
+      noSave = true; try{ applyData(m); rebaseKnown(); } finally{ noSave = false; }
+      save(); render(); if(document.getElementById('g-st')) settingsSheet();
+    }
+    if(!rem || gCk(m)!==gCk(rem)) await gWrite(id, m);
+    Object.assign(G, {synced:Date.now(), err:null}); gSave();
+  }catch(e){
+    if(e && e.auth){ if(manual) { gBusy = false; gAuth('none'); return; } }
+    else { console.error('xset sync', e); G.err = navigator.onLine ? 'err' : null; gSave(); if(manual) toast('Не удалось синхронизировать'); }
+  }finally{
+    gBusy = false; gStatus();
+    if(gAgain){ gAgain = false; clearTimeout(gT); gT = setTimeout(gSync, 3000); }
+  }
+}
+function gStatusText(s){
+  if(s==='sync') return 'Синхронизация…';
+  if(!navigator.onLine) return 'Нет интернета — синхронизирую позже';
+  if(G.err==='auth') return 'Нужно войти снова';
+  if(G.err==='err') return 'Не удалось синхронизировать — попробую ещё';
+  if(!G.synced) return 'Ещё не синхронизировано';
+  const d = new Date(G.synced), t = `${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+  return 'Синхронизировано ' + (iso(d)===TODAY ? `сегодня в ${t}` : `${d.getDate()} ${MONTHS_GEN[d.getMonth()]} в ${t}`);
+}
+function gStatus(s){ const el = document.getElementById('g-st'); if(el) el.textContent = gStatusText(s); }
+document.addEventListener('click', ev=>{
+  const b = ev.target.closest('[data-act^="g-"]'); if(!b) return;
+  const a = b.dataset.act;
+  if(a==='g-in') gAuth(G.err==='auth' ? 'select_account' : 'select_account consent');
+  else if(a==='g-sync') gSync(true);
+  else if(a==='g-open' && G.sheet) window.open('https://docs.google.com/spreadsheets/d/'+G.sheet, '_blank');
+  else if(a==='g-out') confirmSheet('Выйти из Google?', 'Записи останутся на этом телефоне и в таблице «Xset». Синхронизация остановится.', ()=>{
+    if(G.tok) fetch('https://oauth2.googleapis.com/revoke?token='+encodeURIComponent(G.tok), {method:'POST'}).catch(()=>{});
+    G = {}; gSave(); toast('Вы вышли из Google');
+  }, 'Выйти');
+});
+addEventListener('online', ()=>{ gStatus(); gTokOk() ? gSync() : gAutoAuth(); });
+addEventListener('offline', ()=>gStatus());
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && G.on){ gTokOk() ? gSync() : gAutoAuth(); } });
+if(G.on) setTimeout(()=>{ if(gTokOk()) gSync(); else gAutoAuth(); }, gJustIn ? 300 : 1200);
+if(gJustIn) setTimeout(()=>toast('Google подключён — синхронизирую'), 400);
+
 /* заметка дня — пишется прямо на странице, рукописным */
 document.addEventListener('input', ev=>{ if(ev.target.id==='daynote'){ const w=W(st.open); if(w){ w.note=ev.target.textContent.replace(/\s+/g,' ').trim(); } } });
 document.addEventListener('keydown', ev=>{ if(ev.target.id==='daynote'&&ev.key==='Enter'){ ev.preventDefault(); ev.target.blur(); } });
