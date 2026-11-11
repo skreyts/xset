@@ -2201,7 +2201,13 @@ function setDragEnd(){
   d.bin.classList.remove('in');
   setTimeout(()=>{ d.wrap.remove(); d.bin.remove(); d.b.classList.remove('set-lifted'); }, 260);
 }
-document.addEventListener('touchmove', ev=>{ if(!sDrag) return; ev.preventDefault(); const t=ev.touches[0]; setDragMove(t.clientX,t.clientY); }, {passive:false});
+/* v33: блокирующий (passive:false) touchmove — ТОЛЬКО на рядах крестиков, не на документе: иначе браузер на каждом
+   движении пальца ждёт скрипт и прокрутка «не листается» везде. Застрявшее перетаскивание сбрасывается новым касанием. */
+const setTouchMove = ev=>{ if(!sDrag) return; ev.preventDefault(); const t=ev.touches[0]; setDragMove(t.clientX,t.clientY); };
+function bindSetDrag(){ document.querySelectorAll('.sets').forEach(el=>{ if(!el._sd){ el._sd=1; el.addEventListener('touchmove', setTouchMove, {passive:false}); } }); }
+{ const r2 = render; render = function(){ r2.apply(this, arguments); bindSetDrag(); }; }
+document.addEventListener('touchstart', ()=>{ if(sDrag) setDragEnd(); }, {passive:true});
+setTimeout(()=>{ bindSetDrag(); if(typeof dockLayout==='function') dockLayout(); }, 0);   /* первый render() был раньше обёрток */
 document.addEventListener('pointermove', ev=>{ if(sDrag && ev.pointerType==='mouse') setDragMove(ev.clientX,ev.clientY); });
 ['touchend','touchcancel','pointerup'].forEach(t=>document.addEventListener(t, ()=>{ if(sDrag) setDragEnd(); }));
 document.head.insertAdjacentHTML('beforeend',`<style>
