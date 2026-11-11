@@ -537,7 +537,8 @@ svg.cup{width:22px;height:22px;fill:none;stroke:var(--ink);stroke-width:1.9;stro
 .msets svg.cup{width:17px;height:17px;vertical-align:-3px;margin-left:2px}
 /* календарь: сегодня — обведено; выбран — заливка */
 .cal-cell.today .n{text-decoration:none!important}
-.cal-cell.today::after{content:'';position:absolute;left:50%;top:50%;width:36px;height:36px;transform:translate(-50%,-50%);border:1.8px solid var(--ink);border-radius:50%;pointer-events:none;filter:url(#ink)}
+/* v26: «сегодня» — обводка формы маркера (та же косая плашка, что .cal-cell .hl), а не круг */
+.cal-cell.today::after{content:'';position:absolute;left:12%;right:12%;top:14%;bottom:14%;border:1.8px solid var(--ink);border-radius:3px 6px 3px 6px;transform:skewX(-10deg);pointer-events:none;filter:url(#ink)}
 /* итог месяца — рукописный, как запись */
 .msum{margin-top:16px;padding-top:12px;border-top:1.5px solid var(--ink-soft);display:flex;flex-direction:column;gap:8px;font-family:var(--hand);font-size-adjust:var(--fsa);color:var(--ink);filter:url(#ink)}
 .msum b{font-weight:700}
@@ -1446,7 +1447,7 @@ document.addEventListener('keydown',e=>{
 
 /* ЭТАП 2: ХРАНЕНИЕ НА ТЕЛЕФОНЕ. Всё состояние — одним JSON в localStorage (ключ xset-data), пишется после каждого действия.
    Копия = тот же JSON файлом (Настройки → «Сохранить копию»), загрузка — оттуда же; принимает и data/history.json (массив тренировок). */
-const APP_VER = '1.7';
+const APP_VER = '1.7.1';
 const DB_KEY = 'xset-data';
 /* ЭТАП 3 (облако): для слияния телефонов у тренировки есть метка изменения upd, у стёртых — tomb[id]=когда стёрта,
    у настроек (программы, база, архив…) — общая метка setUpd. Метки ставит save() сам, сравнивая с прошлым видом (known). */
