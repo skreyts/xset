@@ -593,6 +593,13 @@ svg.cup,.msum svg.cup,.msets svg.cup{filter:none!important;fill:var(--cup)!impor
 input.val{width:100%;min-width:0;background:transparent;border:0;outline:none;padding:0;color:var(--label);text-align:center;font-family:var(--ui)}
 input.val::placeholder{color:var(--muted)}
 .set svg.cup path{fill:inherit!important;stroke:inherit!important;stroke-width:inherit!important;stroke-dasharray:none!important;animation:none!important}
+/* v25: название не влезло справа от даты → своя строка, по центру экрана */
+.head.wrapped .oval{margin-left:auto;margin-right:auto;text-align:center}
+/* v25: заметка к упражнению — рукописная, прямо на странице, под названием (мельче заметки дня) */
+.exnote{font-family:var(--hand);font-weight:var(--hand-w)!important;font-style:var(--fst,normal);font-size-adjust:var(--fsa);color:var(--ink);filter:url(#ink);
+  font-size:17px;line-height:1.25;margin:3px 0 0 32px;padding:1px 0;min-height:21px;outline:none;caret-color:var(--ink);cursor:text;overflow-wrap:anywhere}
+.exnote:empty::before{content:attr(data-ph);color:var(--ink-soft);opacity:.7}
+.exnote+.sets{margin-top:6px!important}
 </style>
 </head>
 <body>
@@ -837,7 +844,8 @@ function renderWorkout(){
     const d = e.sets.filter(isDone).length, pr = prSet(e,w);
     /* блок упражнения: смахнуть влево — «Стереть»; нажатие на название — карточка упражнения */
     return `<div class="sw-wrap exw">${swActs(`<button class="sw-act" data-act="ex-erase" data-e="${ei}">${ERASER}<span>Стереть</span></button>`)}<div class="sw-front ex">
-      <button class="ex-h" data-act="ex-open" data-n="${esc(e.name)}"><span class="num">${n}</span><span class="name">${esc(e.name)}${e.note?` <em>(${esc(e.note)})</em>`:''}</span><span class="cnt">${d} из ${e.sets.length}</span></button>
+      <button class="ex-h" data-act="ex-open" data-n="${esc(e.name)}"><span class="num">${n}</span><span class="name">${esc(e.name)}</span><span class="cnt">${d} из ${e.sets.length}</span></button>
+      <div class="exnote ed" data-e="${ei}" contenteditable="plaintext-only" spellcheck="false" enterkeyhint="done" data-ph="Заметка…">${esc(e.note||'')}</div>
       <div class="sets">${e.sets.map((s,i)=>setHTML(s,i,e.sets,ei,i===pr)).join('')}<button class="add-set" data-act="add-set" data-e="${ei}" aria-label="Добавить подход"><svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></button></div>
       ${notesLine(e)}
     </div></div>`}).join('');
@@ -853,6 +861,7 @@ function renderWorkout(){
     <div class="foot-acts">${w.ex.length&&w.date<TODAY?`<button class="btn" data-act="repeat">Повторить эту тренировку сегодня</button>`:''}
     <button class="link-danger" data-act="del-w" data-id="${w.id}">${ERASER}Стереть запись</button></div>`;
   st.lastDrawn = null;
+  fitHead();
 }
 
 function renderLib(){
@@ -1269,6 +1278,7 @@ const SW_W = 96;
 function closeSwipes(except){ document.querySelectorAll('.sw-front.open').forEach(f=>{ if(f!==except){ f.classList.remove('open'); f.style.transform=''; setTimeout(()=>{ if(!f.classList.contains('open')) f.parentNode.classList.remove('act'); },260); } }); }
 document.addEventListener('pointerdown', e=>{
   const f = e.target.closest('.sw-front'); if(!f) return;
+  if(e.target.closest('.exnote') && e.target.closest('.exnote')===document.activeElement) return;  /* выделение текста в заметке ≠ свайп */
   const aw = f.parentNode.querySelector('.sw-acts'), aW = aw ? aw.offsetWidth : SW_W;
   sw = {f, W:aW, x:e.clientX, y:e.clientY, dx:0, base:f.classList.contains('open')?-aW:0, moved:false};
   /* долгое нажатие на строку тренировки → подтверждение удаления (как контекстное меню iOS) */
@@ -1436,7 +1446,7 @@ document.addEventListener('keydown',e=>{
 
 /* ЭТАП 2: ХРАНЕНИЕ НА ТЕЛЕФОНЕ. Всё состояние — одним JSON в localStorage (ключ xset-data), пишется после каждого действия.
    Копия = тот же JSON файлом (Настройки → «Сохранить копию»), загрузка — оттуда же; принимает и data/history.json (массив тренировок). */
-const APP_VER = '1.6.1';
+const APP_VER = '1.7';
 const DB_KEY = 'xset-data';
 /* ЭТАП 3 (облако): для слияния телефонов у тренировки есть метка изменения upd, у стёртых — tomb[id]=когда стёрта,
    у настроек (программы, база, архив…) — общая метка setUpd. Метки ставит save() сам, сравнивая с прошлым видом (known). */
@@ -1516,7 +1526,7 @@ document.addEventListener('click', ()=>{ clearTimeout(saveT); saveT = setTimeout
 addEventListener('pagehide', save);
 /* данные поменяли в другой вкладке/окне того же адреса — подхватить, а не затереть */
 /* перерисовка БЕЗ записи — иначе два окна бесконечно пересохраняли друг друга (и сбивали свайп) */
-addEventListener('storage', e=>{ if(e.key===DB_KEY && e.newValue){ noSave=true; try{ applyData(JSON.parse(e.newValue)); rebaseKnown(); if(!document.querySelector('.sw-front.open')&&!$layer.innerHTML.trim()&&document.activeElement.id!=='daynote') render(); }catch(x){} finally{ noSave=false; } } });
+addEventListener('storage', e=>{ if(e.key===DB_KEY && e.newValue){ noSave=true; try{ applyData(JSON.parse(e.newValue)); rebaseKnown(); if(!document.querySelector('.sw-front.open')&&!$layer.innerHTML.trim()&&!document.activeElement.isContentEditable) render(); }catch(x){} finally{ noSave=false; } } });
 document.addEventListener('visibilitychange', ()=>{
   if(document.hidden){ save(); return; }
   const t = isoNow(); if(t!==TODAY){ if(st.calDay===TODAY) st.calDay=t; if(st.calMonth===TODAY.slice(0,7)) st.calMonth=t.slice(0,7); TODAY=t; if(!$layer.innerHTML.trim()) render(); }
@@ -1731,9 +1741,18 @@ if(G.on) setTimeout(()=>{ if(gTokOk()) gSync(); else gAutoAuth(); }, gJustIn ? 3
 if(gJustIn) setTimeout(()=>toast('Google подключён — синхронизирую'), 400);
 
 /* заметка дня — пишется прямо на странице, рукописным */
-document.addEventListener('input', ev=>{ if(ev.target.id==='daynote'){ const w=W(st.open); if(w){ w.note=ev.target.textContent.replace(/\s+/g,' ').trim(); } } });
-document.addEventListener('keydown', ev=>{ if(ev.target.id==='daynote'&&ev.key==='Enter'){ ev.preventDefault(); ev.target.blur(); } });
-document.addEventListener('focusout', ev=>{ if(ev.target.id==='daynote'){ if(!ev.target.textContent.trim()) ev.target.textContent=''; save(); } });
+/* v25: заметка к упражнению (.exnote, data-e = номер упражнения) — так же, как заметка дня */
+const isNote = t => t && t.classList && (t.id==='daynote' || t.classList.contains('exnote'));
+document.addEventListener('input', ev=>{ const t=ev.target; if(!isNote(t)) return; const w=W(st.open); if(!w) return;
+  const v=t.textContent.replace(/\s+/g,' ').trim();
+  if(t.id==='daynote') w.note=v; else { const e=w.ex[+t.dataset.e]; if(e) e.note=v; } });
+document.addEventListener('keydown', ev=>{ if(isNote(ev.target)&&ev.key==='Enter'){ ev.preventDefault(); ev.target.blur(); } });
+document.addEventListener('focusout', ev=>{ if(isNote(ev.target)){ if(!ev.target.textContent.trim()) ev.target.textContent=''; save(); } });
+/* v25: название тренировки не влезло справа от даты (перенеслось) → по центру экрана */
+function fitHead(){ const h=$main.querySelector('.head'); if(!h) return; const d=h.querySelector('.d'), o=h.querySelector('.oval'); if(!d||!o) return;
+  h.classList.remove('wrapped'); if(o.offsetTop > d.offsetTop + d.offsetHeight/2) h.classList.add('wrapped'); }
+addEventListener('resize', fitHead);
+try{ document.fonts && document.fonts.ready.then(fitHead); }catch(e){}
 /* история пользователя с ПК (только localhost): ?import → history.json с сервера, ДОБАВЛЯЕТСЯ к записям (по дате+названию без дублей) */
 async function importFromServer(){
   try{
