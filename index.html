@@ -619,13 +619,15 @@ input.val::placeholder{color:var(--muted)}
 .p-off-monthsum .msum{display:none!important}
 .p-off-weekdots .cal{grid-template-columns:repeat(7,1fr)!important}
 .p-off-weekdots .cal .wk,.p-off-weekdots .cal .wkh{display:none!important}
-.pal{display:flex;flex-wrap:wrap;gap:6px}
-.pal-c{width:36px;height:30px;display:grid;place-items:center;border-radius:9px;border:2px solid transparent}
-.pal-c i{display:block;width:26px;height:16px;border-radius:2px 6px 2px 6px;transform:skewX(-14deg)}
+.pal{display:grid;grid-template-columns:repeat(8,1fr);gap:3px}
+.pal-c{min-width:0;height:30px;display:grid;place-items:center;border-radius:9px;border:2px solid transparent}
+.pal-c i{display:block;width:22px;height:15px;border-radius:2px 6px 2px 6px;transform:skewX(-14deg)}
 .pal-c.on{border-color:var(--ink)}
 .sheet-bar .bar-btn.back{display:inline-flex;align-items:center;min-width:44px;min-height:44px}
 .sheet-bar .bar-btn.back svg{width:12px;height:20px}
 .set-row>div:first-child{flex:1;min-width:0;text-align:left}
+.group>button.set-row{width:100%;box-sizing:border-box}
+.sheet>*{flex-shrink:0}
 /* v27: таймер отдыха — плашка внизу по центру над вкладками, цифры рукописные */
 .rest{position:fixed;left:50%;bottom:calc(74px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:8px;
   min-height:46px;padding:4px 18px 4px 14px;border-radius:23px;background:var(--sheet);box-shadow:0 4px 16px var(--shade),0 0 0 1px var(--sep);color:var(--ink)}
@@ -1547,7 +1549,7 @@ document.addEventListener('keydown',e=>{
 
 /* ЭТАП 2: ХРАНЕНИЕ НА ТЕЛЕФОНЕ. Всё состояние — одним JSON в localStorage (ключ xset-data), пишется после каждого действия.
    Копия = тот же JSON файлом (Настройки → «Сохранить копию»), загрузка — оттуда же; принимает и data/history.json (массив тренировок). */
-const APP_VER = '1.8';
+const APP_VER = '1.8.1';
 const DB_KEY = 'xset-data';
 /* ЭТАП 3 (облако): для слияния телефонов у тренировки есть метка изменения upd, у стёртых — tomb[id]=когда стёрта,
    у настроек (программы, база, архив…) — общая метка setUpd. Метки ставит save() сам, сравнивая с прошлым видом (known). */
