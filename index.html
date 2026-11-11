@@ -637,6 +637,32 @@ input.val::placeholder{color:var(--muted)}
 .rest-x{font-family:var(--ui);font-size:14px;color:var(--danger);font-size-adjust:none}
 .rest.run{box-shadow:0 4px 16px var(--shade),0 0 0 1.5px var(--ink)}
 .rest:active{transform:translateX(-50%) scale(.96)}
+/* v28: таймер-тюнер — оранжевый, чуть бледнее рефа */
+:root{--tim:#ec8a5e;--tim-ink:#fff8f2;--tick:#a39e94}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--tim:#e98d63;--tim-ink:#1b1f27;--tick:#6f7480}}
+:root[data-theme="dark"]{--tim:#e98d63;--tim-ink:#1b1f27;--tick:#6f7480}
+.rest.run{box-shadow:0 4px 16px var(--shade),0 0 0 1.5px var(--tim)!important;color:var(--tim)}
+.rest.fin{color:var(--tim)}
+.rest.fin .rest-x{color:var(--tim)}
+.tbox{position:relative;margin:6px 0 4px;padding:10px 0 4px;touch-action:none;user-select:none;-webkit-user-select:none;transform-origin:50% 120%;cursor:grab}
+.tval{position:absolute;left:50%;top:6px;transform:translateX(-50%) rotate(-1.5deg);z-index:2;background:var(--tim);color:var(--tim-ink);border-radius:22px 26px 24px 20px;padding:4px 20px 6px;
+  font-family:var(--hand);font-weight:700!important;font-size-adjust:var(--fsa);font-size:34px;line-height:1.1;font-variant-numeric:tabular-nums;box-shadow:0 0 0 2.5px var(--tim),0 0 0 4px var(--paper),0 0 0 5.2px var(--tim);filter:url(#ink)}
+.tuner{display:block;width:100%;height:auto;overflow:visible;margin-top:26px}
+.tuner .tarc{fill:none;stroke:var(--tick);stroke-width:1.2;stroke-dasharray:2 5;opacity:.6}
+.tuner .tk{stroke-linecap:round}
+.tuner .tk.on{stroke:var(--tim)} .tuner .tk.past{stroke:var(--tick)}
+.tuner:not(.run) .tk.on{stroke:var(--tick)}
+.tuner .tk.l1{stroke-width:2} .tuner .tk.l2{stroke-width:2.4} .tuner .tk.l3{stroke-width:3}
+.tuner .tl{font-family:var(--hand);font-size:15px;fill:var(--muted);text-anchor:middle}
+.tuner .tpin{fill:none;stroke:var(--tim);stroke-width:3.6;stroke-linecap:round}
+.thint{text-align:center;font-family:var(--hand);font-size:19px;color:var(--muted);margin-top:2px;font-size-adjust:var(--fsa)}
+.tbtns{display:flex;gap:10px;margin-top:12px}
+.tbtns .btn{flex:1}
+.btn.strong{background:var(--tim)!important;color:var(--tim-ink)!important;border-color:var(--tim)!important}
+.btn.tlog{width:100%;margin-top:10px;color:var(--tim)!important;border-color:var(--tim)!important}
+.rst-prev{font-family:var(--hand);font-size:20px;color:var(--tim)}
+/* отдых между крестиками: место занимает только когда записан */
+.rst{align-self:center;margin-top:10px;font-family:var(--hand);font-weight:var(--hand-w)!important;font-size-adjust:var(--fsa);font-size:16px;color:var(--tim);filter:url(#ink);padding:2px 0;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -707,24 +733,114 @@ function savePers(){ try{ localStorage.setItem('xset-pers', JSON.stringify(pers)
 applyPers();
 /* v27: ТАЙМЕР ОТДЫХА — секундомер внизу экрана тренировки. Касание: старт; ещё касание: стоп (время остаётся бледным до следующего старта).
    Считает от метки времени — не сбивается при перерисовке, блокировке экрана и перезапуске (sessionStorage). */
-let REST = {t0:0, last:0};
-try{ const v=JSON.parse(sessionStorage.getItem('xset-rest')||'null'); if(v) REST=v; }catch(e){}
-const mmss = s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+/* v28: ТАЙМЕР-ТЮНЕР. Плашка внизу → шторка: пологая дуга засечек (5 с короткая, 15 с средняя, 30 с высокая), оранжевая булавка по центру.
+   Смахивание влево-вправо двигает шкалу (с инерцией, блок наклоняется по движению). Масштаб √t: чем меньше осталось, тем шире деления.
+   Отсчёт — от метки конца (end), не сбивается при блокировке. Конец: вибрация + сигнал. «Записать» — отдых между крестиками или в кардио. */
+let REST = {pick:90, end:0, dur:0, left:0, done:0};
+try{ const v=JSON.parse(localStorage.getItem('xset-timer')||'null'); if(v) REST={...REST, ...v}; }catch(e){}
+const restSave = ()=>{ try{ localStorage.setItem('xset-timer', JSON.stringify(REST)); }catch(e){} };
+const mmss = s=>{ s=Math.max(0,Math.round(s)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
+const T_MIN=5, T_MAX=1200;
+const restLeft = ()=> REST.end ? Math.max(0,(REST.end-Date.now())/1000) : (REST.left||0);
+const restRun = ()=> REST.end>0;
 function restHTML(){
   if(!pers.timer) return '';
-  const run = REST.t0>0, s = run ? Math.floor((Date.now()-REST.t0)/1000) : REST.last;
-  return `<button id="rest" class="rest ${run?'run':''} ${!run&&s?'done':''}" data-act="rest" aria-label="${run?'Остановить таймер отдыха':'Засечь отдых'}">
+  const run=restRun(), paused=!run&&REST.left>0, fin=!run&&!paused&&REST.done>0;
+  const t = run||paused ? mmss(Math.ceil(restLeft())) : fin ? mmss(REST.done) : mmss(REST.pick);
+  return `<button id="rest" class="rest ${run?'run':''} ${fin?'fin':''}" data-act="rest" aria-label="Таймер отдыха">
     <svg class="rest-ic" viewBox="0 0 24 24"><circle cx="12" cy="13.5" r="8"/><path d="M12 9.5v4.2l2.6 1.6M9.5 2.8h5M12 2.8v2.7"/></svg>
-    <span class="rest-t">${run||s?mmss(s):'отдых'}</span>${run?'<span class="rest-x">стоп</span>':''}</button>`;
+    <span class="rest-t">${t}</span>${fin?'<span class="rest-x">записать</span>':''}</button>`;
 }
-function restTick(){ const el=document.querySelector('#rest .rest-t'); if(el && REST.t0>0) el.textContent = mmss(Math.floor((Date.now()-REST.t0)/1000)); }
-setInterval(restTick, 250);
-function restToggle(){
-  if(REST.t0>0){ REST.last=Math.floor((Date.now()-REST.t0)/1000); REST.t0=0; } else { REST.t0=Date.now(); REST.last=0; }
-  try{ sessionStorage.setItem('xset-rest', JSON.stringify(REST)); }catch(e){}
-  try{ navigator.vibrate && navigator.vibrate(12); }catch(e){}
-  const el=document.getElementById('rest'); if(el) el.outerHTML = restHTML();
+/* шкала: позиция = K·√t (пиксели). Засечки 5/15/30 с; слишком густые прячутся. */
+const TK = 26;
+const tpos = t=>TK*Math.sqrt(t);
+const txInv = x=>Math.pow(Math.max(0,x)/TK,2);
+function tunerSVG(v, run){
+  const W=320, cx=W/2, base=118, bend=0.0011;   /* пологая дуга: y = base + bend·dx² */
+  const x0=tpos(v); let ticks='', labels='';
+  const lo=Math.max(0,txInv(x0-cx-20)), hi=Math.min(T_MAX+60,txInv(x0+cx+20));
+  let lastX=-1e9;
+  for(let t=Math.ceil(lo/5)*5; t<=hi; t+=5){
+    if(t<=0) continue;
+    const dx=tpos(t)-x0, x=cx+dx, step=tpos(t)-tpos(t-5);
+    const lvl = t%30===0?3 : t%15===0?2 : 1;
+    if(lvl===1 && step<5) continue; if(lvl===2 && tpos(t)-tpos(t-15)<6) continue; if(lvl===3 && t%60 && tpos(t)-tpos(t-30)<7) continue;
+    const h = lvl===3?34:lvl===2?22:13, y=base+bend*dx*dx;
+    const fade = Math.max(0,Math.min(1,1-(Math.abs(dx)-110)/60));
+    const past = run && t>v+0.01;                 /* пройденные (больше остатка) — серые */
+    const a = Math.atan(2*bend*dx), sx=Math.sin(a), cy=Math.cos(a);
+    const wob = ((t*7919)%7-3)*0.25;               /* «рука»: чуть неровно */
+    ticks += `<line x1="${(x).toFixed(1)}" y1="${y.toFixed(1)}" x2="${(x+sx*h+wob*.3).toFixed(1)}" y2="${(y-cy*h).toFixed(1)}" class="tk l${lvl} ${past?'past':'on'}" style="opacity:${fade.toFixed(2)}"/>`;
+    const labStep = tpos(t)-tpos(t-30) < 22 ? 60 : 30;
+    if(t%labStep===0 && Math.abs(dx)<cx-14 && x-lastX>34){ labels += `<text x="${x.toFixed(1)}" y="${(y+20).toFixed(1)}" class="tl" style="opacity:${fade.toFixed(2)}">${mmss(t)}</text>`; lastX=x; }
+  }
+  const arc = `<path class="tarc" d="M0 ${(base+bend*cx*cx).toFixed(1)} Q${cx} ${(base-bend*cx*cx).toFixed(1)} ${W} ${(base+bend*cx*cx).toFixed(1)}"/>`;
+  return `<svg class="tuner ${run?'run':''}" viewBox="0 0 ${W} 150">${arc}${ticks}${labels}
+    <path class="tpin" d="M${cx} 52 C${cx-1.5} 80 ${cx+1.8} 104 ${cx} 128"/></svg>`;
 }
+let tun = null;   /* перетаскивание шкалы */
+function timerSheet(){
+  const run=restRun(), paused=!run&&REST.left>0, fin=!run&&!paused&&REST.done>0;
+  const v = run||paused ? restLeft() : REST.pick;
+  sheet(`${bar('Таймер', '', R('close','Готово'))}
+    <div class="tbox" id="tbox"><div class="tval" id="tval">${mmss(Math.ceil(v))}</div><div id="tsvg">${tunerSVG(v, run||paused)}</div>
+      <div class="thint">${run?(v<=10?'Время истекает…':'Отдых'):paused?'Пауза':fin?'Готово':'Смахни, чтобы выбрать время'}</div></div>
+    <div class="tbtns">
+      ${run?`<button class="btn" data-act="t-pause">Пауза</button><button class="btn" data-act="t-reset">Сброс</button>`
+        :paused?`<button class="btn strong" data-act="t-start">Дальше</button><button class="btn" data-act="t-reset">Сброс</button>`
+        :`<button class="btn strong" data-act="t-start">Старт</button>`}
+    </div>
+    ${tLogged()>0?`<button class="btn tlog" data-act="t-log">Записать ${mmss(tLogged())}</button>`:''}`);
+}
+/* сколько записать: идёт/пауза — прошедшее; закончился — вся длительность */
+const tLogged = ()=> restRun()||REST.left>0 ? Math.round(REST.dur-restLeft()) : (REST.done||0);
+function tunerDraw(){
+  const sv=document.getElementById('tsvg'); if(!sv) return;
+  const run=restRun(), v = tun ? tun.v : (run||REST.left>0 ? restLeft() : REST.pick);
+  sv.innerHTML = tunerSVG(v, run||REST.left>0);
+  const tv=document.getElementById('tval'); if(tv) tv.textContent=mmss(Math.ceil(v));
+}
+function restTick(){
+  const el=document.querySelector('#rest .rest-t');
+  if(restRun()){
+    const left=restLeft();
+    if(el) el.textContent=mmss(Math.ceil(left));
+    if(document.getElementById('tsvg') && !tun) tunerDraw();
+    if(left<=0) restFinish();
+  }
+}
+setInterval(restTick, 100);
+let actx=null;
+function beep(){ try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+  [0,.28,.56].forEach((d,i)=>{ const o=actx.createOscillator(), g=actx.createGain(); o.type='sine'; o.frequency.value=i===2?1320:880;
+    g.gain.setValueAtTime(0.0001,actx.currentTime+d); g.gain.exponentialRampToValueAtTime(0.35,actx.currentTime+d+0.02); g.gain.exponentialRampToValueAtTime(0.0001,actx.currentTime+d+0.22);
+    o.connect(g).connect(actx.destination); o.start(actx.currentTime+d); o.stop(actx.currentTime+d+0.25); }); }catch(e){} }
+function restFinish(){
+  REST.done=REST.dur; REST.end=0; REST.left=0; restSave();
+  try{ navigator.vibrate && navigator.vibrate([250,120,250,120,400]); }catch(e){}
+  beep(); restRefresh();
+}
+function restRefresh(){ const el=document.getElementById('rest'); if(el) el.outerHTML=restHTML(); if(document.getElementById('tbox')) timerSheet(); }
+function restAct(a){
+  try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); actx.resume&&actx.resume(); }catch(e){}   /* звук разрешается только по касанию */
+  if(a==='t-start'){ const d = REST.left>0 ? REST.left : REST.pick; if(!(REST.left>0)) REST.dur=REST.pick; REST.end=Date.now()+d*1000; REST.left=0; REST.done=0; try{navigator.vibrate&&navigator.vibrate(12)}catch(e){} }
+  if(a==='t-pause'){ REST.left=restLeft(); REST.end=0; }
+  if(a==='t-reset'){ REST.end=0; REST.left=0; REST.done=0; REST.dur=0; }
+  restSave(); restRefresh();
+}
+/* куда записать: отдых после последнего отмеченного подхода, или кардио текущей тренировки */
+function tLogSheet(){
+  const w=W(st.open), sec=tLogged(); if(!w){ toast('Откройте тренировку'); return; }
+  let tgt=null; w.ex.forEach((e,ei)=>e.sets.forEach((s,si)=>{ if(isDone(s) && si<e.sets.length) tgt={ei,si,name:e.name}; }));
+  const kinds = [...new Set([...w.cardio.map(k=>k.kind), 'Скакалка', ...cardioLib])].slice(0,8);
+  sheet(`${bar('Записать '+mmss(sec), L('t-back','Назад'))}
+    <div class="cap">Отдых</div><div class="group">
+    ${tgt?`<button class="set-row" data-act="t-log-rest" data-e="${tgt.ei}" data-s="${tgt.si}"><div><b>После ${tgt.si+1}-го подхода</b><small>${esc(tgt.name)} — между крестиками</small></div><span class="rst-prev">${mmss(sec)}</span></button>`
+      :`<div class="set-row"><div><b style="color:var(--muted)">Нет отмеченных подходов</b><small>Отметьте подход — отдых встанет после него</small></div></div>`}
+    </div>
+    <div class="cap">Упражнение</div><div class="group">${kinds.map(k=>`<button class="set-row" data-act="t-log-cardio" data-k="${esc(k)}"><div><b>${esc(k)}</b><small>${w.cardio.some(c=>c.kind===k)?'добавить к записанному':'новая строка кардио'}</small></div><span class="chev">${CHEV}</span></button>`).join('')}</div>`);
+}
+function tLogDone(){ REST.done=0; REST.end=0; REST.left=0; REST.dur=0; restSave(); close(); render(); }
 function persSheet(){
   const sw = (k,t,sub)=>`<button class="set-row" data-act="pers" data-k="${k}"><div><b>${t}</b>${sub?`<small>${sub}</small>`:''}</div><span class="switch ${pers[k]?'on':''}" role="switch" aria-checked="${!!pers[k]}"></span></button>`;
   const colRow = k=>{ const cur = pers.col[k]||COL_DEF[k];
@@ -946,7 +1062,7 @@ function renderWorkout(){
     /* блок упражнения: смахнуть влево — «Стереть»; нажатие на название — карточка упражнения */
     return `<div class="sw-wrap exw">${swActs(`<button class="sw-act" data-act="ex-erase" data-e="${ei}">${ERASER}<span>Стереть</span></button>`)}<div class="sw-front ex">
       <button class="ex-h" data-act="ex-open" data-n="${esc(e.name)}"><span class="num">${n}</span><span class="name">${esc(e.name)}</span><span class="cnt">${d} из ${e.sets.length}</span></button>
-      <div class="sets">${e.sets.map((s,i)=>setHTML(s,i,e.sets,ei,i===pr)).join('')}<button class="add-set" data-act="add-set" data-e="${ei}" aria-label="Добавить подход"><svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></button></div>
+      <div class="sets">${e.sets.map((s,i)=>setHTML(s,i,e.sets,ei,i===pr)+(s.rest?`<button class="rst" data-act="rst" data-e="${ei}" data-s="${i}" aria-label="Отдых ${mmss(s.rest)}">${mmss(s.rest)}</button>`:'')).join('')}<button class="add-set" data-act="add-set" data-e="${ei}" aria-label="Добавить подход"><svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg></button></div>
       <div class="exnote ed" data-e="${ei}" contenteditable="plaintext-only" spellcheck="false" enterkeyhint="done" data-ph="Заметка…">${esc(e.note||'')}</div>
       ${notesLine(e)}
     </div></div>`}).join('');
@@ -1537,7 +1653,16 @@ document.addEventListener('click', ev=>{
     case 'pers-open': persSheet(); break;
     case 'pers': { const k=b.dataset.k; pers[k]=!pers[k]; savePers(); const s=b.querySelector('.switch'); s.classList.toggle('on',pers[k]); s.setAttribute('aria-checked',pers[k]); if(k==='timer'&&st.screen==='workout') render(); break; }
     case 'pers-col': { const k=b.dataset.k, c=b.dataset.c; if(c===COL_DEF[k]) delete pers.col[k]; else pers.col[k]=c; savePers(); b.parentNode.querySelectorAll('.pal-c').forEach(x=>x.classList.toggle('on',x===b)); break; }
-    case 'rest': restToggle(); break;
+    case 'rest': if(!restRun()&&!(REST.left>0)&&REST.done>0) tLogSheet(); else timerSheet(); break;
+    case 't-start': case 't-pause': case 't-reset': restAct(b.dataset.act); break;
+    case 't-log': tLogSheet(); break;
+    case 't-back': timerSheet(); break;
+    case 't-log-rest': { const w=W(st.open), e=w&&w.ex[+b.dataset.e], s=e&&e.sets[+b.dataset.s]; if(s){ s.rest=tLogged(); toast(`Отдых ${mmss(s.rest)} записан`); } tLogDone(); break; }
+    case 't-log-cardio': { const w=W(st.open); if(!w) break; const k=b.dataset.k, min=Math.round(tLogged()/6)/10; let c=w.cardio.find(x=>x.kind===k);
+      if(cmode(k)==='r'){ if(!c){ c={kind:k,km:0,min:0,rounds:0}; w.cardio.push(c); } c.rounds=(c.rounds||0)+1; if(!c.min) c.min=min; }
+      else { if(!c){ c={kind:k,km:0,min:0}; w.cardio.push(c); } c.min=Math.round(((+c.min||0)+min)*10)/10; }
+      toast(`${esc(k)}: ${cardioText(c)}`); tLogDone(); break; }
+    case 'rst': { const w=W(st.open), s=w&&w.ex[+b.dataset.e]&&w.ex[+b.dataset.e].sets[+b.dataset.s]; if(s) confirmSheet(`Отдых ${mmss(s.rest)}`, 'Убрать запись отдыха между подходами?', ()=>{ delete s.rest; }, 'Убрать'); break; }
   }
 });
 document.addEventListener('keydown',e=>{
@@ -1549,7 +1674,7 @@ document.addEventListener('keydown',e=>{
 
 /* ЭТАП 2: ХРАНЕНИЕ НА ТЕЛЕФОНЕ. Всё состояние — одним JSON в localStorage (ключ xset-data), пишется после каждого действия.
    Копия = тот же JSON файлом (Настройки → «Сохранить копию»), загрузка — оттуда же; принимает и data/history.json (массив тренировок). */
-const APP_VER = '1.8.1';
+const APP_VER = '1.9';
 const DB_KEY = 'xset-data';
 /* ЭТАП 3 (облако): для слияния телефонов у тренировки есть метка изменения upd, у стёртых — tomb[id]=когда стёрта,
    у настроек (программы, база, архив…) — общая метка setUpd. Метки ставит save() сам, сравнивая с прошлым видом (known). */
@@ -1844,6 +1969,34 @@ if(G.on) setTimeout(()=>{ if(gTokOk()) gSync(); else gAutoAuth(); }, gJustIn ? 3
 if(gJustIn) setTimeout(()=>toast('Google подключён — синхронизирую'), 400);
 
 /* заметка дня — пишется прямо на странице, рукописным */
+/* v28: тюнер — смахивание по шкале. Тянешь вправо → время меньше (шкала едет за пальцем). Инерция, наклон блока по скорости, щелчок на каждых 5 с. */
+const tClamp = v=>Math.max(T_MIN, Math.min(T_MAX, v));
+let tunRaf = 0;
+function tTilt(vel){ const b=document.getElementById('tbox'); if(b) b.style.transform=`rotate(${Math.max(-5,Math.min(5,vel*2.2)).toFixed(2)}deg)`; }
+function tSet(v){ const old=Math.floor(tun.v/5); tun.v=tClamp(v); if(Math.floor(tun.v/5)!==old){ try{ navigator.vibrate&&navigator.vibrate(4); }catch(e){} } tunerDraw(); }
+document.addEventListener('pointerdown', ev=>{
+  const b=ev.target.closest('.tbox'); if(!b || restRun() || REST.left>0) return;
+  cancelAnimationFrame(tunRaf); b.style.transition='none';
+  tun={x:ev.clientX, x0:tpos(REST.pick), v:REST.pick, vel:0, lx:ev.clientX, lt:performance.now()};
+  try{ b.setPointerCapture(ev.pointerId); }catch(e){}
+});
+document.addEventListener('pointermove', ev=>{
+  if(!tun || tun.fly) return; const now=performance.now(), dt=Math.max(1,now-tun.lt);
+  tun.vel = 0.7*tun.vel + 0.3*((ev.clientX-tun.lx)/dt*16); tun.lx=ev.clientX; tun.lt=now;
+  tSet(txInv(tun.x0-(ev.clientX-tun.x))); tTilt(tun.vel);
+});
+function tRelease(){
+  if(!tun || tun.fly) return; tun.fly=true;
+  const step=()=>{
+    tun.vel*=0.92; if(Math.abs(tun.vel)>0.3){ tSet(txInv(tpos(tun.v)-tun.vel)); tTilt(tun.vel); tunRaf=requestAnimationFrame(step); return; }
+    const v=Math.round(tun.v/5)*5; REST.pick=tClamp(v); restSave(); tun=null;
+    const b=document.getElementById('tbox'); if(b){ b.style.transition='transform .5s cubic-bezier(.3,1.6,.5,1)'; b.style.transform=''; }
+    tunerDraw(); const r=document.querySelector('#rest .rest-t'); if(r) r.textContent=mmss(REST.pick);
+  };
+  tunRaf=requestAnimationFrame(step);
+}
+document.addEventListener('pointerup', tRelease);
+document.addEventListener('pointercancel', tRelease);
 /* v25: заметка к упражнению (.exnote, data-e = номер упражнения) — так же, как заметка дня */
 const isNote = t => t && t.classList && (t.id==='daynote' || t.classList.contains('exnote'));
 document.addEventListener('input', ev=>{ const t=ev.target; if(!isNote(t)) return; const w=W(st.open); if(!w) return;
@@ -1899,7 +2052,7 @@ addEventListener('popstate',()=>{ const h=goBack(); if(h){ try{ history.pushStat
 let drag=null;
 document.addEventListener('touchstart',ev=>{
   const sh=ev.target.closest('.sheet'); if(!sh) return;
-  if(ev.target.closest('input,textarea,.stepper,.seg,.sw-front')) return;
+  if(ev.target.closest('input,textarea,.stepper,.seg,.sw-front,.tbox')) return;
   const top=ev.target.closest('.grab,.sheet-bar,h2')||sh.scrollTop<=0;
   if(!top) return;
   drag={sh,y0:ev.touches[0].clientY,x0:ev.touches[0].clientX,t0:Date.now(),dy:0,on:false};
