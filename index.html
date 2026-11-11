@@ -519,7 +519,7 @@ input,textarea,[contenteditable]{-webkit-user-select:text;user-select:text;-webk
 .sw-wrap.act .sw-acts{visibility:visible}
 .sw-acts .sw-act{position:static;width:84px;height:100%;visibility:inherit}
 .sw-acts .sw-act:only-child{width:96px}
-.sw-front{box-sizing:border-box}
+.sw-front{box-sizing:border-box;transition:transform .22s ease-out}
 /* тренировка: упражнение — строка со свайпом на бумаге */
 .exw .sw-front{background-color:var(--paper);background-image:var(--grain);background-size:108px 108px}
 .exw+.exw{border-top:1.5px solid var(--ink-soft)}
@@ -665,7 +665,7 @@ input.val::placeholder{color:var(--muted)}
 /* v29: таймер «в воздухе»: без рамок; развёрнутый — бумага растворяется вверх, вкладки не перекрыты */
 /* v30: --tp = раскрытость 0..1, --th = высота тела (px) — палец ведёт таймер напрямую (.drag), отпустил — пружина */
 .tdock{--tp:0;--th:0px;position:fixed;left:0;right:0;bottom:var(--navh,64px);z-index:5;display:grid;grid-template-rows:auto var(--th);justify-items:center;pointer-events:none;
-  padding:0 16px calc(12px - 6px*var(--tp))}
+  padding:0 16px 6px}   /* v35: свёрнутая булавка СТОИТ на линии вкладок (внешнее кольцо 5.2px касается линии) — от неё и отскакивает */
 .tdock::before{content:'';position:absolute;inset:-10px 0 0 0;background:linear-gradient(to top,var(--paper) 85%,transparent);opacity:var(--tp);pointer-events:none}
 /* v31: движение задаёт прокрутка — без переходов */
 .tdock,.tdock .tval,.tdock .tin{transition:none!important}
@@ -688,6 +688,11 @@ input.val::placeholder{color:var(--muted)}
 .tdock.fin .tval{animation:tpulse 1s ease-in-out 3}
 @keyframes tpulse{50%{transform:rotate(-1.5deg) scale(1.08)}}
 .page{padding-bottom:calc(170px + env(safe-area-inset-bottom,0px))!important}
+/* v35: Android-приложение рисуется под строкой состояния (edge-to-edge) — отступ сверху + «бумага» под строкой состояния.
+   В вебе/PWA safe-area-inset-top = 0, ничего не меняется. */
+.page{padding-top:calc(14px + env(safe-area-inset-top,0px))!important}
+.month{top:env(safe-area-inset-top,0px)!important}
+body::before{content:'';position:fixed;left:0;right:0;top:0;height:env(safe-area-inset-top,0px);background:var(--paper);z-index:20;pointer-events:none}
 /* отдых между крестиками: место занимает только когда записан */
 .rst{align-self:center;margin-top:10px;font-family:var(--hand);font-weight:var(--hand-w)!important;font-size-adjust:var(--fsa);font-size:16px;color:var(--tim);filter:url(#ink);padding:2px 0;white-space:nowrap}
 </style>
@@ -698,6 +703,7 @@ input.val::placeholder{color:var(--muted)}
   <button id="nav-list" data-act="nav" data-to="list"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg>Дневник</button>
   <button id="nav-cal" data-act="nav" data-to="cal"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Календарь</button>
   <button id="nav-lib" data-act="nav" data-to="progs"><svg viewBox="0 0 24 24"><path d="M6.5 8v8M17.5 8v8M3.5 10v4M20.5 10v4M6.5 12h11"/></svg>Программы</button>
+  <button id="nav-clk" data-act="nav" data-to="clock"><svg viewBox="0 0 24 24"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 13.5V9.5M10 3h4M18.2 7.2l1.3-1.3"/></svg>Таймер</button>
 </nav>
 <button id="fab" hidden><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
 <div id="layer"></div>
@@ -851,10 +857,27 @@ function beep(){ try{ actx=actx||new (window.AudioContext||window.webkitAudioCon
   [0,.28,.56].forEach((d,i)=>{ const o=actx.createOscillator(), g=actx.createGain(); o.type='sine'; o.frequency.value=i===2?1320:880;
     g.gain.setValueAtTime(0.0001,actx.currentTime+d); g.gain.exponentialRampToValueAtTime(0.35,actx.currentTime+d+0.02); g.gain.exponentialRampToValueAtTime(0.0001,actx.currentTime+d+0.22);
     o.connect(g).connect(actx.destination); o.start(actx.currentTime+d); o.stop(actx.currentTime+d+0.25); }); }catch(e){} }
+/* v35: ANDROID (Capacitor) — таймер живёт и вне страницы: уведомление с обратным отсчётом + точный будильник на конец
+   (звук будильника и вибрация при выключенном экране). В вебе ничего не делает. */
+const NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+let notifAsked = false;
+function nativeTimerSync(){
+  if(!NATIVE) return; const C=window.Capacitor, P=C.Plugins||{}, T=P.XsetTimer||(C.registerPlugin&&C.registerPlugin('XsetTimer')); if(!T) return;
+  if(REST.end>0){
+    if(!notifAsked && P.LocalNotifications){ notifAsked=true; P.LocalNotifications.requestPermissions().catch(()=>{}); }
+    T.start({end:REST.end, title:'Таймер Xset · '+mmss(REST.dur||0)}).catch(()=>{});
+  } else T.stop({clearEnd:true}).catch(()=>{});
+}
+/* v35: Android — значки строки состояния под тему (светлая бумага → тёмные значки) */
+let sbLast=null;
+function nativeBars(){ if(!NATIVE) return; const t=document.documentElement.dataset.theme;
+  const dark = t==='dark' || (t!=='light' && matchMedia('(prefers-color-scheme: dark)').matches);
+  if(dark===sbLast) return; sbLast=dark; const C=window.Capacitor, S=C.Plugins&&C.Plugins.SystemBars; if(S&&S.setStyle) S.setStyle({style: dark?'DARK':'LIGHT'}).catch(()=>{}); }
+if(NATIVE){ setInterval(nativeBars, 1000); setTimeout(nativeBars, 50); }
 function restFinish(){
   REST.done=REST.dur; REST.end=0; REST.left=0; restSave();   /* v31: страницу не дёргаем — булавка пульсирует */
   try{ navigator.vibrate && navigator.vibrate([250,120,250,120,400]); }catch(e){}
-  beep(); restRefresh();
+  if(!NATIVE) beep(); restRefresh();   /* на Android звучит нативный будильник — не дублировать */
 }
 /* класс меняем на том же элементе — так выезд анимируется; содержимое перерисовываем */
 function restRefresh(){ const el=document.getElementById('tdock'); if(!el) return; el.className=dockCls(); el.innerHTML=dockInner(); dockSet(el, TP); }
@@ -863,7 +886,7 @@ function restAct(a){
   if(a==='t-start'){ const d = REST.left>0 ? REST.left : REST.pick; if(!(REST.left>0)) REST.dur=REST.pick; REST.end=Date.now()+d*1000; REST.left=0; REST.done=0; try{navigator.vibrate&&navigator.vibrate(12)}catch(e){} }
   if(a==='t-pause'){ REST.left=restLeft(); REST.end=0; }
   if(a==='t-reset'){ REST.end=0; REST.left=0; REST.done=0; REST.dur=0; }
-  restSave(); restRefresh();
+  restSave(); restRefresh(); nativeTimerSync();
 }
 /* куда записать: отдых после последнего отмеченного подхода, или кардио текущей тренировки */
 function tLogSheet(){
@@ -1343,7 +1366,8 @@ function render(){
   document.getElementById('nav-cal').classList.toggle('on',sc==='cal'||(sc==='workout'&&st.from==='cal'));
   const tab3 = s=>['progs','prog','exlib'].includes(s)||(s==='ex'&&st.exFrom!=='search');
   document.getElementById('nav-lib').classList.toggle('on',tab3(sc)||(sc==='workout'&&tab3(st.from)));
-  ({list:renderList,workout:renderWorkout,progs:renderProgs,prog:renderProg,exlib:renderLib,ex:renderEx,cal:renderCal,search:renderSearch})[st.screen]();
+  document.getElementById('nav-clk').classList.toggle('on',sc==='clock');
+  ({list:renderList,workout:renderWorkout,progs:renderProgs,prog:renderProg,exlib:renderLib,ex:renderEx,cal:renderCal,search:renderSearch,clock:renderClock})[st.screen]();
   /* v23: «+» из заголовка списка переезжает в круглую кнопку внизу по центру */
   const fab = document.getElementById('fab'), ab = $main.querySelector('.titlebar .addbtn');
   fab.hidden = !ab;
@@ -1527,7 +1551,19 @@ document.addEventListener('pointercancel', ()=>idxOn=false);
 /* свайп влево по строке открывает действие (как в «Почте»/«Заметках») */
 let sw = null, swEat = false;
 const SW_W = 96;
-function closeSwipes(except){ document.querySelectorAll('.sw-front.open').forEach(f=>{ if(f!==except){ f.classList.remove('open'); f.style.transform=''; setTimeout(()=>{ if(!f.classList.contains('open')) f.parentNode.classList.remove('act'); },260); } }); }
+/* v35: при свайпе текст, который уезжает за левый край строки, не режется — исчезает целиком (остаются дата/число справа).
+   «Лист» = элемент с собственным текстом, svg или подход .set. tx — итоговый сдвиг (для конечного положения после отпускания). */
+function swLeaves(f){ if(f._lv) return f._lv; const out=[];
+  f.querySelectorAll('*').forEach(el=>{ if(el.closest('svg')!==null && el.tagName.toLowerCase()!=='svg') return; if(out.some(o=>o.contains(el))) return;
+    const own=[...el.childNodes].some(n=>n.nodeType===3&&n.textContent.trim()); if(own||el.tagName.toLowerCase()==='svg'||el.classList.contains('set')) out.push(el); });
+  return f._lv=out; }
+function swFade(f, tx){
+  const cur=new DOMMatrixReadOnly(getComputedStyle(f).transform).m41, L=f.parentNode.getBoundingClientRect().left+2;
+  const t = tx===undefined ? cur : tx;
+  swLeaves(f).forEach(el=>{ const r=el.getBoundingClientRect(); if(!r.width) return; const hide = r.left-cur+t < L;
+    el.style.transition='opacity .14s ease-out'; el.style.opacity = hide ? '0' : ''; });
+}
+function closeSwipes(except){ document.querySelectorAll('.sw-front.open').forEach(f=>{ if(f!==except){ f.classList.remove('open'); f.style.transform=''; swFade(f,0); setTimeout(()=>{ if(!f.classList.contains('open')) f.parentNode.classList.remove('act'); },260); } }); }
 document.addEventListener('pointerdown', e=>{
   const f = e.target.closest('.sw-front'); if(!f) return;
   if(e.target.closest('.exnote') && e.target.closest('.exnote')===document.activeElement) return;  /* выделение текста в заметке ≠ свайп */
@@ -1544,12 +1580,13 @@ document.addEventListener('contextmenu', e=>{ if(e.target.closest('.sw-front')) 
 document.addEventListener('pointermove', e=>{
   if(!sw) return;
   const dx = e.clientX-sw.x, dy = e.clientY-sw.y;
-  if(!sw.moved){ if(Math.abs(dy)>10&&Math.abs(dy)>Math.abs(dx)){ sw=null; return; } if(Math.abs(dx)>8){ sw.moved=true; sw.f.style.transition='none'; sw.f.parentNode.classList.add('act'); closeSwipes(sw.f); } }
-  if(sw.moved){ clearTimeout(lpTimer); sw.dx=dx; const t=Math.min(0,Math.max(-sw.W*1.25,sw.base+dx)); sw.f.style.transform=`translateX(${t}px)`; }
+  if(!sw.moved){ if(Math.abs(dy)>10&&Math.abs(dy)>Math.abs(dx)){ sw=null; return; } if(Math.abs(dx)>8){ sw.moved=true; sw.off=dx; sw.f.style.transition='none'; sw.f.parentNode.classList.add('act'); closeSwipes(sw.f); } }
+  /* v35: без рывка (отсчёт от точки, где жест распознан) и без перелёта за кнопки — никаких отскоков */
+  if(sw.moved){ clearTimeout(lpTimer); sw.dx=dx-sw.off; const t=Math.min(0,Math.max(-sw.W,sw.base+sw.dx)); sw.f.style.transform=`translateX(${t}px)`; swFade(sw.f); }
 });
 function swEnd(){
   if(!sw) return;
-  if(sw.moved){ const open=(sw.base+sw.dx)<-Math.min(60,sw.W/2); sw.f.style.transition=''; sw.f.style.transform=open?`translateX(-${sw.W}px)`:''; sw.f.classList.toggle('open',open); if(!open){ const f=sw.f; setTimeout(()=>{ if(!f.classList.contains('open')) f.parentNode.classList.remove('act'); },260); } swEat=true; setTimeout(()=>swEat=false,50); }
+  if(sw.moved){ const open=(sw.base+sw.dx)<-Math.min(60,sw.W/2); sw.f.style.transition=''; sw.f.style.transform=open?`translateX(-${sw.W}px)`:''; swFade(sw.f, open?-sw.W:0); sw.f.classList.toggle('open',open); if(!open){ const f=sw.f; setTimeout(()=>{ if(!f.classList.contains('open')) f.parentNode.classList.remove('act'); },260); } swEat=true; setTimeout(()=>swEat=false,50); }
   sw = null;
 }
 document.addEventListener('pointerup', swEnd);
@@ -1692,6 +1729,9 @@ document.addEventListener('click', ev=>{
     case 'pers': { const k=b.dataset.k; pers[k]=!pers[k]; savePers(); const s=b.querySelector('.switch'); s.classList.toggle('on',pers[k]); s.setAttribute('aria-checked',pers[k]); if(k==='timer'&&st.screen==='workout') render(); break; }
     case 'pers-col': { const k=b.dataset.k, c=b.dataset.c; if(c===COL_DEF[k]) delete pers.col[k]; else pers.col[k]=c; savePers(); b.parentNode.querySelectorAll('.pal-c').forEach(x=>x.classList.toggle('on',x===b)); break; }
     case 'rest': tOpen(!TOPEN); break;
+    case 'clk-mode': case 'clk-start': case 'clk-pause': case 'clk-go': case 'clk-reset': case 'clk-lap': case 'clk-pick': case 'clk-st': clkAct(b.dataset.act, b); break;
+    case 'clk-log': clkLogSheet(); break;
+    case 'clk-log-to': clkLogTo(b.dataset.k); break;
     case 't-start': case 't-pause': case 't-reset': restAct(b.dataset.act); break;
     case 't-log': tLogSheet(); break;
     case 't-back': close(); break;
@@ -1847,6 +1887,14 @@ let gBusy = false, gAgain = false, gT = null;
 
 function gAuth(prompt){
   save();
+  /* v35: Android — нативный доступ Google (в WebView переход на accounts.google.com запрещён). Тихо — без окон. */
+  if(NATIVE){ const C=window.Capacitor, A=(C.Plugins&&C.Plugins.XsetAuth)||C.registerPlugin('XsetAuth'); G.tried=Date.now(); gSave();
+    A.authorize({interactive: prompt!=='none'}).then(r=>{ const first=!G.on;
+      Object.assign(G, {tok:r.token, exp:Date.now()+55*60e3, on:true, err:null}); if(r.email) G.email=r.email; gSave();
+      if(typeof render==='function' && document.getElementById('g-st')) settingsSheet&&settingsSheet();
+      gSync(first); })
+    .catch(e=>{ const m=String(e&&e.message||e); if(prompt==='none'){ if(G.on){ G.err='auth'; gSave(); } } else if(!/cancel/.test(m)) toast('Не удалось войти: '+m); });
+    return; }
   const p = new URLSearchParams({client_id:G_CLIENT, redirect_uri:G_REDIR, response_type:'token', scope:G_SCOPE,
     include_granted_scopes:'true', state: prompt==='none' ? 'xset-s' : 'xset'});
   if(prompt) p.set('prompt', prompt);
@@ -1873,7 +1921,7 @@ if(/(access_token|error)=/.test(location.hash)){
 }
 /* токен истёк — при открытии приложения тихо сходить за новым (не чаще раза в 10 минут и не по кругу) */
 function gAutoAuth(){
-  if(G.on && !gTokOk() && G.err!=='auth' && navigator.onLine && !uiBusy() && Date.now()-(G.tried||0) > 10*60e3) gAuth('none');
+  if(G.on && !gTokOk() && G.err!=='auth' && navigator.onLine && !uiBusy() && (NATIVE || Date.now()-(G.tried||0) > 10*60e3)) gAuth('none');
 }
 
 async function gApi(url, opt={}){
@@ -2039,7 +2087,7 @@ document.addEventListener('pointercancel', tRelease);
    насколько прокручено: листаешь вниз — выезжает вместе со страницей, листаешь назад — прячется. Отступ снизу у .page
    подобран так, что конец записи всегда на GAP выше таймера (ничего не перекрывает). Короткая страница добирается
    min-height до «экран + H», чтобы было что листать. Касание булавки — плавная прокрутка (открыть/закрыть). */
-const DOCK_GAP = 88, DOCK_PADC = 12;   /* 88: «Стереть запись» того же цвета — не должна читаться как кнопка таймера (что ближе, к тому и относится) */
+const DOCK_GAP = 88, DOCK_PADC = 6;   /* 88: «Стереть запись» того же цвета — не должна читаться как кнопка таймера (что ближе, к тому и относится) */
 /* v32: «Стереть запись» — строкой записи, как «Записать упражнение» (слева, вплотную), а не по центру над таймером.
    Булавка при выезде отскакивает от низа, как мячик (свойство translate — не мешает transform масштаба). */
 document.head.insertAdjacentHTML('beforeend',`<style>
@@ -2201,6 +2249,145 @@ function setDragEnd(){
   d.bin.classList.remove('in');
   setTimeout(()=>{ d.wrap.remove(); d.bin.remove(); d.b.classList.remove('set-lifted'); }, 260);
 }
+/* ===== v36: ВКЛАДКА «ТАЙМЕР» (Xtime внутри Xset): Табата / Таймер / Секундомер =====
+   Время считается от меток (start, pausedAt, acc) — переживает перезагрузку. Звук/вибрация на странице; на Android,
+   когда приложение свёрнуто или экран выключен, — нативные будильники на каждую смену фазы (XsetTimer group 'clk'). */
+const CLK_KEY='xset-clock', CLK_DEF={mode:'tabata', tab:{prep:10,work:20,rest:10,rounds:8}, tim:{pick:60}, run:null, laps:[]};
+let CLK=(()=>{ try{ const o=JSON.parse(localStorage.getItem(CLK_KEY)||'{}'); return Object.assign(JSON.parse(JSON.stringify(CLK_DEF)), o); }catch(e){ return JSON.parse(JSON.stringify(CLK_DEF)); } })();
+const clkSave=()=>{ try{ localStorage.setItem(CLK_KEY, JSON.stringify(CLK)); }catch(e){} };
+const PH_NAME={prep:'подготовка', work:'работа', rest:'отдых'};
+const CLK_X='<svg viewBox="0 0 24 24"><path class="a" d="M4 21C9 14 14 8 21 3"/><path class="b" d="M6 5.5L17.5 18"/></svg>';
+function clkPlan(){
+  if(CLK.mode==='tabata'){ const t=CLK.tab, p=[]; if(t.prep) p.push({k:'prep',d:t.prep});
+    for(let i=1;i<=t.rounds;i++){ p.push({k:'work',d:t.work,r:i}); if(i<t.rounds && t.rest) p.push({k:'rest',d:t.rest,r:i}); } return p; }
+  if(CLK.mode==='timer') return [{k:'work',d:CLK.tim.pick}];
+  return null;
+}
+const clkEl=()=>{ const r=CLK.run; return r ? Math.max(0,((r.pausedAt||Date.now())-r.start-(r.acc||0))/1000) : 0; };
+function clkPos(){ const r=CLK.run, plan=r&&r.plan; if(!plan) return null; const e=clkEl(); let acc=0;
+  for(let i=0;i<plan.length;i++){ if(e<acc+plan[i].d) return {i, seg:plan[i], left:acc+plan[i].d-e}; acc+=plan[i].d; }
+  return {done:true, i:plan.length}; }
+const fmtSW=s=>{ const m=Math.floor(s/60), x=s-m*60; return `${m}:${String(Math.floor(x)).padStart(2,'0')},${Math.floor((x%1)*10)}`; };
+function clkFace(){
+  const m=CLK.mode, r=CLK.run, paused=r&&r.pausedAt; let big, lab='&nbsp;', rounds='', cls='';
+  if(m==='sw'){ big=fmtSW(clkEl()); if(paused) lab='пауза'; }
+  else { const p=r?clkPos():null;
+    if(!r){ const plan=clkPlan(); big=mmss(plan.reduce((a,s)=>a+s.d,0)); lab = m==='tabata' ? `${CLK.tab.rounds} × ${mmss(CLK.tab.work)}` + (CLK.tab.rest?`, отдых ${mmss(CLK.tab.rest)}`:'') : 'выбери время'; }
+    else if(p.done){ big='0:00'; lab = m==='tabata' ? 'тренировка закончена' : 'время вышло'; cls='fin'; }
+    else { big=mmss(Math.ceil(p.left)); cls=p.seg.k;
+      lab = paused ? 'пауза' : m==='tabata' ? PH_NAME[p.seg.k]+(p.seg.r?`, раунд ${p.seg.r} из ${CLK.tab.rounds}`:'') : (p.left<=10?'время истекает…':'&nbsp;'); }
+    if(m==='tabata'){ const n=CLK.tab.rounds, cur=p&&!p.done?(p.seg.r||0):0;
+      rounds=`<div class="clk-rounds">${Array.from({length:n},(_,i)=>{ const k=i+1, done=(p&&p.done)||(cur&&(k<cur||(k===cur&&p.seg.k==='rest'))), now=cur===k&&p.seg.k==='work';
+        return `<i class="${done?'d':now?'n':''}">${CLK_X}</i>`; }).join('')}</div>`; }
+  }
+  const run=r&&!paused, done=r&&m!=='sw'&&clkPos().done, canLog=r&&(paused||done)&&clkEl()>=1;
+  const B=(a,t,main)=>`<button class="${main?'main':''}" data-act="${a}">${t}</button>`;
+  const btns = !r ? B('clk-start','старт',1)
+    : done ? B('clk-start','заново',1)+B('clk-log','записать')
+    : run ? (m==='sw'?B('clk-lap','круг'):'')+B('clk-pause','пауза',1)+(m!=='sw'?B('clk-reset','сброс'):'')
+    : B('clk-go','дальше',1)+B('clk-reset','сброс')+(canLog?B('clk-log','записать'):'');
+  return `<div class="clk-face ${cls}"><div class="clk-lab">${lab}</div><div class="clk-big">${big}</div>${rounds}</div><div class="clk-btns">${btns}</div>`;
+}
+function clkSettings(){
+  const row=(k,n,v,txt)=>`<div class="clk-row"><span>${n}</span><span class="clk-stp"><button data-act="clk-st" data-k="${k}" data-d="-1" aria-label="Меньше">${IC_MINUS}</button><b>${txt}</b><button data-act="clk-st" data-k="${k}" data-d="1" aria-label="Больше">${IC_PLUS}</button></span></div>`;
+  if(CLK.mode==='tabata'){ const t=CLK.tab;
+    return `<div class="group clk-set">${row('work','Работа',t.work,mmss(t.work))}${row('rest','Отдых',t.rest,mmss(t.rest))}${row('rounds','Раунды',t.rounds,t.rounds)}${row('prep','Подготовка',t.prep,mmss(t.prep))}</div>`; }
+  if(CLK.mode==='timer') return `<div class="clk-chips">${[30,60,90,120,180,300,600].map(s=>`<button class="${CLK.tim.pick===s?'on':''}" data-act="clk-pick" data-s="${s}">${mmss(s)}</button>`).join('')}</div>
+      <div class="group clk-set">${row('tim','Своё время',CLK.tim.pick,mmss(CLK.tim.pick))}</div>`;
+  return CLK.laps.length ? `<div class="cap">Круги</div><div class="group clk-set">${CLK.laps.map((l,i)=>`<div class="clk-row"><span>Круг ${i+1}</span><b class="clk-lapv">${fmtSW(l)}</b></div>`).reverse().join('')}</div>` : '';
+}
+function renderClock(){
+  /* первый render() идёт раньше объявления CLK (открылись сразу на этой вкладке) — дорисовать после загрузки скрипта */
+  try{ CLK; }catch(e){ $main.innerHTML=''; setTimeout(render,0); return; }
+  const m=CLK.mode;
+  $main.innerHTML = `<div class="titlebar"><h1>Таймер</h1></div>
+    <div class="seg" style="margin:6px 0 4px">${[['tabata','Табата'],['timer','Таймер'],['sw','Секундомер']].map(([k,n])=>`<button class="${m===k?'on':''}" data-act="clk-mode" data-m="${k}"${CLK.run?' disabled':''}>${n}</button>`).join('')}</div>
+    <div class="clk" id="clk">${clkFace()}</div><div id="clk-set">${CLK.run&&m!=='sw'?'':clkSettings()}</div>`;
+}
+const STEP={work:[5,5,3600], rest:[5,0,3600], prep:[5,0,120], rounds:[1,1,99], tim:[15,5,5940]};
+function clkDraw(){ const el=document.getElementById('clk'); if(!el) return; const h=clkFace(); if(el._h!==h){ el.innerHTML=h; el._h=h; } }
+function clkNative(){ if(!NATIVE) return; const C=window.Capacitor, T=(C.Plugins&&C.Plugins.XsetTimer)||C.registerPlugin('XsetTimer'); if(!T) return;
+  const r=CLK.run; if(!r||r.pausedAt||CLK.mode==='sw'||document.visibilityState==='visible'){ T.stop({group:'clk'}).catch(()=>{}); return; }
+  const now=Date.now(), base=r.start+(r.acc||0); let acc=0; const ph=[];
+  r.plan.forEach((s,i)=>{ acc+=s.d; const at=base+acc*1000; if(at>now){ const nx=r.plan[i+1];
+    ph.push({at, title: nx ? (PH_NAME[nx.k][0].toUpperCase()+PH_NAME[nx.k].slice(1)+(nx.r?` · раунд ${nx.r}`:'')) : (CLK.mode==='tabata'?'Тренировка закончена':'Время вышло'), last: !nx}); } });
+  if(ph.length) T.start({group:'clk', end:ph[ph.length-1].at, title:CLK.mode==='tabata'?'Табата':'Таймер', phases:ph.slice(0,60)}).catch(()=>{});
+}
+document.addEventListener('visibilitychange', clkNative);
+let clkLast={i:-1,s:-1};
+setInterval(()=>{
+  const r=CLK.run; if(!r||r.pausedAt) return;
+  if(CLK.mode!=='sw'){ const p=clkPos();
+    if(p.done){ if(clkLast.i!==-2){ clkLast.i=-2; clkBeep(3); try{navigator.vibrate&&navigator.vibrate([250,120,250,120,400])}catch(e){} } }
+    else { const s=Math.ceil(p.left);
+      if(p.i!==clkLast.i){ if(clkLast.i>=0){ clkBeep(1,true); try{navigator.vibrate&&navigator.vibrate(300)}catch(e){} } clkLast.i=p.i; }
+      if(s!==clkLast.s){ if(s<=3 && s>=1 && p.left<s) clkBeep(1); clkLast.s=s; } } }
+  if(st.screen==='clock') clkDraw();
+}, 100);
+function clkBeep(n, long){ if(document.visibilityState!=='visible') return; try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+  for(let i=0;i<n;i++){ const d=i*.28, o=actx.createOscillator(), g=actx.createGain(); o.type='sine'; o.frequency.value=long?1320:(n>1&&i===n-1?1320:880);
+    const len=long?.5:.18; g.gain.setValueAtTime(.0001,actx.currentTime+d); g.gain.exponentialRampToValueAtTime(.35,actx.currentTime+d+.02); g.gain.exponentialRampToValueAtTime(.0001,actx.currentTime+d+len);
+    o.connect(g).connect(actx.destination); o.start(actx.currentTime+d); o.stop(actx.currentTime+d+len+.03); } }catch(e){} }
+function clkAct(a, b){
+  try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); actx.resume&&actx.resume(); }catch(e){}
+  const r=CLK.run, now=Date.now();
+  if(a==='clk-mode'){ if(!r){ CLK.mode=b.dataset.m; } }
+  if(a==='clk-start'){ CLK.run={start:now, acc:0, pausedAt:0, plan:clkPlan()}; CLK.laps=[]; clkLast={i:-1,s:-1}; try{navigator.vibrate&&navigator.vibrate(12)}catch(e){} }
+  if(a==='clk-pause' && r){ r.pausedAt=now; }
+  if(a==='clk-go' && r){ r.acc=(r.acc||0)+(now-r.pausedAt); r.pausedAt=0; }
+  if(a==='clk-reset'){ CLK.run=null; CLK.laps=[]; }
+  if(a==='clk-lap' && r){ const e=clkEl(), prev=CLK.laps.reduce((x,y)=>x+y,0); CLK.laps.push(e-prev); }
+  if(a==='clk-pick'){ CLK.tim.pick=+b.dataset.s; }
+  if(a==='clk-st'){ const k=b.dataset.k, [st0,mn,mx]=STEP[k], o=k==='tim'?CLK.tim:CLK.tab, f=k==='tim'?'pick':k; o[f]=Math.max(mn,Math.min(mx,(o[f]||0)+(+b.dataset.d)*st0)); }
+  clkSave(); clkNative(); if(st.screen==='clock') render();
+}
+/* «записать»: табата — раунды × мин работы; таймер/секундомер — минуты. В сегодняшнюю тренировку (нет — новая). */
+function clkLogSheet(){
+  const kinds=[...new Set(['Скакалка','Бокс: мешок','Бокс: лапы',...cardioLib])].slice(0,10);
+  const p=CLK.mode!=='sw'?clkPos():null, sec=Math.round(clkEl());
+  const what = CLK.mode==='tabata' ? `${clkRoundsDone()} × ${mmss(CLK.tab.work)}` : mmss(sec);
+  sheet(`${bar('Записать '+what, L('t-back','Назад'))}
+    <div class="cap">В сегодняшнюю тренировку</div><div class="group">${kinds.map(k=>`<button class="set-row" data-act="clk-log-to" data-k="${esc(k)}"><div><b>${esc(k)}</b></div><span class="chev">${CHEV}</span></button>`).join('')}</div>`);
+}
+function clkRoundsDone(){ const r=CLK.run; if(!r||!r.plan) return 0; const e=clkEl(); let acc=0, n=0; r.plan.forEach(s=>{ acc+=s.d; if(s.k==='work' && e>=acc-0.5) n++; }); return n; }
+function clkLogTo(k){
+  let w=workouts.filter(x=>x.date===TODAY).sort((a,b)=>b.id-a.id)[0];
+  if(!w){ w=copyWorkout(null,TODAY); w.title=k; workouts.push(w); }
+  if(!cardioLib.includes(k) && !CARDIO_STD.includes(k)) cardioLib.push(k);
+  let c=w.cardio.find(x=>x.kind===k); if(!c){ c={kind:k,km:0,min:0}; w.cardio.push(c); }
+  if(CLK.mode==='tabata' && cmode(k)==='r'){ c.rounds=(c.rounds||0)+clkRoundsDone(); c.min=Math.round(CLK.tab.work/6)/10; }
+  else { const add = CLK.mode==='tabata' ? clkRoundsDone()*CLK.tab.work : clkEl(); c.min=Math.round(((+c.min||0)+add/60)*10)/10; }
+  CLK.run=null; CLK.laps=[]; clkSave(); clkNative(); close(); render(); toast(`${esc(k)}: ${cardioText(c)||'записано'}`);
+}
+document.head.insertAdjacentHTML('beforeend',`<style>
+.clk{margin:22px 0 10px;text-align:center}
+.clk-face{display:flex;flex-direction:column;align-items:center}
+.clk-lab{font-family:var(--hand);font-weight:var(--hand-w)!important;font-size-adjust:var(--fsa);font-size:22px;color:var(--muted);filter:url(#ink);min-height:30px}
+.clk-big{font-family:var(--hand);font-weight:700!important;font-size-adjust:var(--fsa);font-size:96px;line-height:1.05;color:var(--ink);font-variant-numeric:tabular-nums;filter:url(#ink);margin:2px 0 6px}
+.clk-face.work .clk-big,.clk-face.fin .clk-big{color:var(--tim)}
+.clk-face.work .clk-lab{color:var(--tim)}
+.clk-rounds{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 10px;max-width:320px;margin:6px auto 0}
+.clk-rounds i{width:26px;height:26px;display:block}
+.clk-rounds svg{width:100%;height:100%;fill:none;stroke:var(--ink-soft);stroke-width:2.4;stroke-linecap:round;filter:url(#ink)}
+.clk-rounds i:not(.d) .b{display:none}
+.clk-rounds i.d svg{stroke:var(--ink)}
+.clk-rounds i.n svg{stroke:var(--tim)}
+.clk-btns{display:flex;justify-content:center;gap:28px;margin:18px 0 6px;min-height:44px}
+.clk-btns button{font-family:var(--hand);font-weight:var(--hand-w)!important;font-size-adjust:var(--fsa);font-size:24px;color:var(--muted);filter:url(#ink);padding:8px 4px;min-height:44px}
+.clk-btns button.main{color:var(--tim)}
+.clk-btns button:active{transform:scale(.92)}
+.clk-set{margin-top:14px}
+.clk-row{display:flex;align-items:center;justify-content:space-between;min-height:52px;padding:0 6px 0 16px;font-family:var(--ui);font-size:17px;color:var(--label)}
+.clk-stp{display:flex;align-items:center;gap:4px}
+.clk-stp b{min-width:58px;text-align:center;font-weight:500;font-variant-numeric:tabular-nums}
+.clk-stp button{width:44px;height:44px;display:grid;place-items:center;color:var(--tint)}
+.clk-stp svg.gl{width:20px;height:20px}
+.clk-lapv{font-weight:500;font-variant-numeric:tabular-nums;padding-right:10px}
+.clk-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:14px 0 0}
+.clk-chips button{font-family:var(--ui);font-size:16px;padding:8px 14px;border-radius:18px;background:var(--fill);color:var(--label);min-height:40px;font-variant-numeric:tabular-nums}
+.clk-chips button.on{background:var(--tim);color:var(--tim-ink)}
+.seg button[disabled]{opacity:.45}
+</style>`);
 /* v33: блокирующий (passive:false) touchmove — ТОЛЬКО на рядах крестиков, не на документе: иначе браузер на каждом
    движении пальца ждёт скрипт и прокрутка «не листается» везде. Застрявшее перетаскивание сбрасывается новым касанием. */
 const setTouchMove = ev=>{ if(!sDrag) return; ev.preventDefault(); const t=ev.touches[0]; setDragMove(t.clientX,t.clientY); };
