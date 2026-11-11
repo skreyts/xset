@@ -936,21 +936,39 @@ function renderSearch(){
 document.addEventListener('click', ev=>{ if(ev.target.closest('[data-to="search"]')){ st.srchQ = ''; st.srchFocus = true; } }, true);
 document.addEventListener('input', ev=>{ if(ev.target.id==='srch-q'){ st.srchQ = ev.target.value; document.getElementById('srch-res').innerHTML = searchResults(); } });
 document.addEventListener('keydown', ev=>{ if(ev.key==='Enter' && ev.target.id==='srch-q') ev.target.blur(); });
+/* v1.6.1 история упражнения — подходы как в тренировке (крестик, повторы сверху, нагрузка снизу при смене), только мельче */
+function miniSet(s, i, sets){
+  const key = loadKey(s), showLoad = key && (i===0 || key!==loadKey(sets[i-1]));
+  const firstKg = s.w && (i===0 || !sets[i-1].w);
+  return `<span class="hset"><span class="x">${xStroke('a','')}${xStroke('b','')}</span><span class="r">${s.r}</span><span class="w">${showLoad?`${loadHTML(s)}${firstKg?'кг':''}`:''}</span></span>`;
+}
+document.head.insertAdjacentHTML('beforeend', `<style>
+.hrow{align-items:center}
+.hrow .hist-d small{display:block;font-size:12px;color:var(--muted);margin-top:1px}
+.hsets{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:flex-start;gap:4px 9px;padding:2px 0}
+.hset{display:grid;grid-template-columns:19px auto;grid-template-areas:"x r" "w w";align-items:start}
+.hset .x{grid-area:x;position:relative;width:19px;height:20px;margin-top:5px;filter:url(#ink)}
+.hset .x svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.hset .r,.hset .w{font-family:var(--hand);font-weight:var(--hand-w);font-style:var(--fst,normal);font-size-adjust:var(--fsa);color:var(--ink);line-height:1;filter:url(#ink)}
+.hset .r{grid-area:r;font-size:16px;margin-left:-1px}
+.hset .w{grid-area:w;font-size:12px;min-height:9px;display:flex;align-items:center;gap:1px;margin-top:1px;white-space:nowrap}
+.hset .w .dot{width:7px;height:7px}
+</style>`);
 /* карточка упражнения: сводка, история по датам (нажатие — открыть тренировку), в архив / вернуть */
 function renderEx(){
   const n = st.ex, isCardio = cardioLib.includes(n);
   const hist = sorted().map(w=>{
     if(isCardio){ const k=w.cardio.filter(k=>k.kind===n); return k.length?{w,txt:k.map(cardioText).join(' + ')}:null; }
     const e=w.ex.find(e=>e.name===n), ds=e?effSets(e.sets).filter(isDone):[];
-    return ds.length?{w,txt:ds.map(setShort).join(', '),best:Math.max(0,...ds.map(s=>s.w||0))}:null;
+    return ds.length?{w,ds,best:Math.max(0,...ds.map(s=>s.w||0))}:null;
   }).filter(Boolean);
   const best = Math.max(0,...hist.map(h=>h.best||0)), arch = archived.has(n);
   const back = st.exFrom==='prog' && P(st.prog) ? esc(P(st.prog).name) : st.exFrom==='workout' ? 'Тренировка' : st.exFrom==='search' ? 'Поиск' : 'Упражнения';
   $main.innerHTML = `<div class="top"><button class="back" data-act="ex-back">${CHEV}${back}</button><button data-act="ex-rename">Изменить</button></div>
     <h1 class="page-h1">${esc(n)}</h1>
     <div class="progress">${hist.length?`${hist.length} ${plural(hist.length,'тренировка','тренировки','тренировок')} · последний раз ${fmt(hist[0].w.date)}${best?` · максимум <b>${kg(best)} кг</b>`:''}`:'Ещё не делали'}</div>
-    ${hist.length?`<div class="sec">История</div><div class="group">${hist.map(h=>`<button class="lib-row prow" data-act="open" data-id="${h.w.id}">
-      <span class="hist-d">${fmt(h.w.date)}</span><span class="pm"><span class="hist-t">${h.txt}</span></span><span class="chev">${CHEV}</span></button>`).join('')}</div>`:''}
+    ${hist.length?`<div class="sec">История</div><div class="group">${hist.map(h=>`<button class="lib-row prow hrow" data-act="open" data-id="${h.w.id}">
+      <span class="hist-d">${fmt(h.w.date)}<small>${wd(h.w.date)}</small></span>${h.ds?`<span class="hsets">${h.ds.map(miniSet).join('')}</span>`:`<span class="pm"><span class="hist-t">${h.txt}</span></span>`}<span class="chev">${CHEV}</span></button>`).join('')}</div>`:''}
     <div class="foot-acts"><button class="link-danger" style="color:var(--tint)" data-act="${arch?'lib-unarch':'lib-arch'}" data-n="${esc(n)}">${arch?'Вернуть из архива':'Убрать в архив'}</button></div>`;
 }
 /* «+» в «Упражнениях» — как в «Тренировках» и «Программах» */
@@ -1418,7 +1436,7 @@ document.addEventListener('keydown',e=>{
 
 /* ЭТАП 2: ХРАНЕНИЕ НА ТЕЛЕФОНЕ. Всё состояние — одним JSON в localStorage (ключ xset-data), пишется после каждого действия.
    Копия = тот же JSON файлом (Настройки → «Сохранить копию»), загрузка — оттуда же; принимает и data/history.json (массив тренировок). */
-const APP_VER = '1.6';
+const APP_VER = '1.6.1';
 const DB_KEY = 'xset-data';
 /* ЭТАП 3 (облако): для слияния телефонов у тренировки есть метка изменения upd, у стёртых — tomb[id]=когда стёрта,
    у настроек (программы, база, архив…) — общая метка setUpd. Метки ставит save() сам, сравнивая с прошлым видом (known). */
