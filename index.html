@@ -638,9 +638,10 @@ input.val::placeholder{color:var(--muted)}
 .rest.run{box-shadow:0 4px 16px var(--shade),0 0 0 1.5px var(--ink)}
 .rest:active{transform:translateX(-50%) scale(.96)}
 /* v28: таймер-тюнер — оранжевый, чуть бледнее рефа */
-:root{--tim:#ec8a5e;--tim-ink:#fff8f2;--tick:#a39e94}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--tim:#e98d63;--tim-ink:#1b1f27;--tick:#6f7480}}
-:root[data-theme="dark"]{--tim:#e98d63;--tim-ink:#1b1f27;--tick:#6f7480}
+/* v30: цвет таймера = цвет «Стереть запись» (--danger) — просьба пользователя */
+:root{--tim:var(--danger);--tim-ink:#fff8f2;--tick:#a39e94}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--tim:var(--danger);--tim-ink:#1b1f27;--tick:#6f7480}}
+:root[data-theme="dark"]{--tim:var(--danger);--tim-ink:#1b1f27;--tick:#6f7480}
 .rest.run{box-shadow:0 4px 16px var(--shade),0 0 0 1.5px var(--tim)!important;color:var(--tim)}
 .rest.fin{color:var(--tim)}
 .rest.fin .rest-x{color:var(--tim)}
@@ -662,19 +663,17 @@ input.val::placeholder{color:var(--muted)}
 .btn.tlog{width:100%;margin-top:10px;color:var(--tim)!important;border-color:var(--tim)!important}
 .rst-prev{font-family:var(--hand);font-size:20px;color:var(--tim)}
 /* v29: таймер «в воздухе»: без рамок; развёрнутый — бумага растворяется вверх, вкладки не перекрыты */
-.tdock{position:fixed;left:0;right:0;bottom:var(--navh,64px);z-index:5;display:grid;grid-template-rows:auto 0fr;justify-items:center;pointer-events:none;
-  transition:grid-template-rows .45s cubic-bezier(.3,1.25,.5,1);padding:0 16px 8px}
-.tdock::before{content:'';position:absolute;inset:-40px 0 0 0;background:linear-gradient(to top,var(--paper) 62%,transparent);opacity:0;transition:opacity .3s;pointer-events:none}
-.tdock.open{grid-template-rows:auto 1fr;pointer-events:auto}
-.tdock.open::before{opacity:1}
+/* v30: --tp = раскрытость 0..1, --th = высота тела (px) — палец ведёт таймер напрямую (.drag), отпустил — пружина */
+.tdock{--tp:0;--th:0px;position:fixed;left:0;right:0;bottom:var(--navh,64px);z-index:5;display:grid;grid-template-rows:auto var(--th);justify-items:center;pointer-events:none;
+  transition:grid-template-rows .42s cubic-bezier(.3,1.15,.5,1);padding:0 16px 14px}
+.tdock::before{content:'';position:absolute;inset:-40px 0 0 0;background:linear-gradient(to top,var(--paper) 62%,transparent);opacity:var(--tp);transition:opacity .3s;pointer-events:none}
+.tdock.open{pointer-events:auto}
 .tdock>*{position:relative;pointer-events:auto}
-.tdock .tval{position:relative;left:auto;top:auto;transform:rotate(-1.5deg) scale(.72);transform-origin:50% 100%;margin:0 0 -6px;transition:transform .45s cubic-bezier(.3,1.5,.5,1);cursor:pointer}
-.tdock.open .tval{transform:rotate(-1.5deg) scale(1);margin-bottom:0}
-.tdock .tval:active{transform:rotate(-1.5deg) scale(.66)}
-.tdock.open .tval:active{transform:rotate(-1.5deg) scale(.95)}
+.tdock .tval{position:relative;left:auto;top:auto;transform:rotate(-1.5deg) scale(calc(.72 + .28*var(--tp)));transform-origin:50% 100%;margin:0;transition:transform .42s cubic-bezier(.3,1.4,.5,1);cursor:pointer}
+.tdock .tval:active{transform:rotate(-1.5deg) scale(calc((.72 + .28*var(--tp))*.92))}
 .tdock .tbody{overflow:hidden;min-height:0;width:100%;max-width:420px}
-.tdock .tin{opacity:0;transform:translateY(16px);transition:opacity .25s,transform .45s cubic-bezier(.3,1.4,.5,1)}
-.tdock.open .tin{opacity:1;transform:none;transition-delay:.06s}
+.tdock .tin{opacity:var(--tp);transform:translateY(calc(16px - 16px*var(--tp)));transition:opacity .25s,transform .42s cubic-bezier(.3,1.4,.5,1)}
+.tdock.drag,.tdock.drag::before,.tdock.drag .tval,.tdock.drag .tin{transition:none!important}
 .tdock .tbox{margin:0;padding:0}
 .tdock .tuner{margin-top:-50px}
 .tdock .tbtns{display:flex;justify-content:center;gap:22px;margin-top:6px;padding-bottom:4px;white-space:nowrap}
@@ -770,11 +769,14 @@ const restRun = ()=> REST.end>0;
 function restHTML(){
   if(!pers.timer) return '';
   const run=restRun(), paused=!run&&REST.left>0, fin=!run&&!paused&&REST.done>0;
-  return `<div id="tdock" class="${dockCls()}">${dockInner()}</div>`;
+  return `<div id="tdock" class="${dockCls()}" style="--tp:${TOPEN?1:0};--th:${TOPEN?DOCK_H:0}px">${dockInner()}</div>`;
 }
 /* v29: ОДИН таймер «в воздухе» над вкладками. Свёрнут — только оранжевая булавка со временем; развёрнут — булавка поднимается,
    под ней раскрывается шкала и рукописные кнопки. Без рамок и шторки. Открыть: касание булавки или тяга вверх в конце страницы. */
-let TOPEN = false;
+let TOPEN = false, DOCK_H = 0;
+/* высота раскрытого тела (натуральная высота .tin) и раскрытость → в переменные дока */
+function dockMeasure(el){ const tin=el&&el.querySelector('.tin'); if(tin&&tin.offsetHeight) DOCK_H=tin.offsetHeight; return DOCK_H||200; }
+function dockSet(el,p){ if(!el) return; el.style.setProperty('--tp', p.toFixed(3)); el.style.setProperty('--th', (p*dockMeasure(el)).toFixed(1)+'px'); }
 function dockCls(){ const run=restRun(), paused=!run&&REST.left>0, fin=!run&&!paused&&REST.done>0; return `tdock ${TOPEN?'open':''} ${run?'run':''} ${fin?'fin':''}`; }
 function dockInner(){
   const run=restRun(), paused=!run&&REST.left>0, fin=!run&&!paused&&REST.done>0;
@@ -847,7 +849,7 @@ function restFinish(){
   beep(); restRefresh();
 }
 /* класс меняем на том же элементе — так выезд анимируется; содержимое перерисовываем */
-function restRefresh(){ const el=document.getElementById('tdock'); if(!el) return; el.className=dockCls(); el.innerHTML=dockInner(); }
+function restRefresh(){ const el=document.getElementById('tdock'); if(!el) return; el.className=dockCls(); el.innerHTML=dockInner(); dockSet(el, TOPEN?1:0); }
 function restAct(a){
   try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); actx.resume&&actx.resume(); }catch(e){}   /* звук разрешается только по касанию */
   if(a==='t-start'){ const d = REST.left>0 ? REST.left : REST.pick; if(!(REST.left>0)) REST.dur=REST.pick; REST.end=Date.now()+d*1000; REST.left=0; REST.done=0; try{navigator.vibrate&&navigator.vibrate(12)}catch(e){} }
@@ -2030,19 +2032,45 @@ document.addEventListener('click', ev=>{
   ev.stopPropagation(); ev.preventDefault(); tOpen(false);
 }, true);
 /* v29: тяга вверх у самого низа страницы тренировки — выкатить таймер; тяга вниз по таймеру — свернуть */
+/* v30: таймер идёт за пальцем. Свёрнут: листаешь вниз (палец вверх) и страница уже в самом низу — таймер выезжает
+   с того же движения (не нужно отпускать и тянуть заново). Развёрнут: палец вниз где угодно (кроме шкалы) — уезжает.
+   Отпустил: открыт > 35 % или быстрый жест в ту сторону — довести пружиной, иначе вернуть. */
 let tPull = null;
+const atBottomNow = ()=> innerHeight + scrollY >= document.documentElement.scrollHeight - 3;
 document.addEventListener('touchstart', ev=>{
-  if(st.screen!=='workout' || !pers.timer || $layer.innerHTML.trim()) return;
-  const t=ev.touches[0], onDock=!!ev.target.closest('#tdock'), onScale=!!ev.target.closest('.tbox');
-  const atBottom = innerHeight + scrollY >= document.documentElement.scrollHeight - 4;
-  tPull = {y:t.clientY, x:t.clientX, atBottom, onDock, onScale};
+  tPull=null;
+  if(st.screen!=='workout' || !pers.timer || $layer.innerHTML.trim() || ev.touches.length>1) return;
+  const t=ev.touches[0];
+  if(ev.target.closest('.tbox') || isNote(document.activeElement)) return;
+  tPull = {y:t.clientY, x:t.clientX, ly:t.clientY, lt:performance.now(), v:0, drag:null, base:0, p:TOPEN?1:0};
 }, {passive:true});
 document.addEventListener('touchmove', ev=>{
-  if(!tPull) return; const t=ev.touches[0], dy=t.clientY-tPull.y, dx=t.clientX-tPull.x;
-  if(!TOPEN && tPull.atBottom && !tPull.onDock && dy < -70 && Math.abs(dy) > Math.abs(dx)*1.5){ tPull=null; tOpen(true); return; }
-  if(TOPEN && tPull.onDock && !tPull.onScale && dy > 50 && Math.abs(dy) > Math.abs(dx)*1.5){ tPull=null; tOpen(false); }
+  if(!tPull) return; const t=ev.touches[0], y=t.clientY, now=performance.now();
+  const dt=Math.max(1,now-tPull.lt); tPull.v = .6*tPull.v + .4*((y-tPull.ly)/dt); tPull.ly=y; tPull.lt=now;
+  const el=document.getElementById('tdock'); if(!el){ tPull=null; return; }
+  if(!tPull.drag){
+    const dy=y-tPull.y, dx=t.clientX-tPull.x;
+    if(Math.abs(dx)>14 && Math.abs(dx)>Math.abs(dy)){ tPull=null; return; }      /* горизонтальный жест — не наш */
+    if(!TOPEN && tPull.v<0 && atBottomNow()){ tPull.drag='open'; tPull.base=y; }
+    else if(TOPEN && dy>6){ tPull.drag='close'; tPull.base=y; }
+    else return;
+    dockMeasure(el); el.classList.add('drag');
+  }
+  const H=DOCK_H||200, d=tPull.base-y;                    /* d>0 — палец ушёл вверх */
+  let p = tPull.drag==='open' ? d/H : 1+d/H;
+  p = p>1 ? 1+(p-1)*.15 : p<0 ? 0 : p;                     /* за край — с сопротивлением */
+  tPull.p=p; dockSet(el,p);
 }, {passive:true});
-document.addEventListener('touchend', ()=>{ tPull=null; }, {passive:true});
+function tPullEnd(){
+  const g=tPull; tPull=null; if(!g||!g.drag) return;
+  const el=document.getElementById('tdock'); if(!el) return;
+  let o = g.p>.35; if(g.v<-.35) o=true; if(g.v>.35) o=false;
+  el.classList.remove('drag');
+  if(o!==TOPEN){ TOPEN=o; try{ navigator.vibrate&&navigator.vibrate(o?10:6); }catch(e){} el.className=dockCls(); }
+  dockSet(el, o?1:0);
+}
+document.addEventListener('touchend', tPullEnd, {passive:true});
+document.addEventListener('touchcancel', tPullEnd, {passive:true});
 /* таймер стоит ровно над вкладками и не перекрывает их */
 const setNavH=()=>{ const n=document.querySelector('nav'); if(n&&n.offsetHeight) document.documentElement.style.setProperty('--navh', n.offsetHeight+'px'); };
 addEventListener('resize', setNavH); addEventListener('load', setNavH); setTimeout(setNavH, 50);
