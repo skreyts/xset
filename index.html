@@ -604,6 +604,37 @@ input.val::placeholder{color:var(--muted)}
 :root[data-theme="dark"]{--note:#8d9097}
 .exnote{color:var(--note)!important;caret-color:var(--note)!important}
 .sets+.exnote{margin-top:2px}
+/* v27: заметка дня — тоже серым карандашом */
+.daynote,.daycard .daynote{color:var(--note)!important;caret-color:var(--note)}
+.daynote.ed:empty::before{color:var(--note)!important;opacity:.45!important}
+/* v27: персонализация — прозрачность маркера для своих цветов; выключенное прячется */
+:root{--hla:50%}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--hla:36%}}
+:root[data-theme="dark"]{--hla:36%}
+.p-off-cups svg.cup{display:none!important}
+.p-off-cnt .ex-h .cnt{display:none!important}
+.p-off-daynote .daynote{display:none!important}
+.p-off-exnote .exnote{display:none!important}
+.p-off-repeat [data-act="repeat"]{display:none!important}
+.p-off-monthsum .msum{display:none!important}
+.p-off-weekdots .cal{grid-template-columns:repeat(7,1fr)!important}
+.p-off-weekdots .cal .wk,.p-off-weekdots .cal .wkh{display:none!important}
+.pal{display:flex;flex-wrap:wrap;gap:6px}
+.pal-c{width:36px;height:30px;display:grid;place-items:center;border-radius:9px;border:2px solid transparent}
+.pal-c i{display:block;width:26px;height:16px;border-radius:2px 6px 2px 6px;transform:skewX(-14deg)}
+.pal-c.on{border-color:var(--ink)}
+.sheet-bar .bar-btn.back{display:inline-flex;align-items:center;min-width:44px;min-height:44px}
+.sheet-bar .bar-btn.back svg{width:12px;height:20px}
+.set-row>div:first-child{flex:1;min-width:0;text-align:left}
+/* v27: таймер отдыха — плашка внизу по центру над вкладками, цифры рукописные */
+.rest{position:fixed;left:50%;bottom:calc(74px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:8px;
+  min-height:46px;padding:4px 18px 4px 14px;border-radius:23px;background:var(--sheet);box-shadow:0 4px 16px var(--shade),0 0 0 1px var(--sep);color:var(--ink)}
+.rest-ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.rest-t{font-family:var(--hand);font-weight:var(--hand-w)!important;font-size-adjust:var(--fsa);font-size:26px;line-height:1;filter:url(#ink);min-width:3.2ch;text-align:left;font-variant-numeric:tabular-nums}
+.rest.done .rest-t{color:var(--muted)}
+.rest-x{font-family:var(--ui);font-size:14px;color:var(--danger);font-size-adjust:none}
+.rest.run{box-shadow:0 4px 16px var(--shade),0 0 0 1.5px var(--ink)}
+.rest:active{transform:translateX(-50%) scale(.96)}
 </style>
 </head>
 <body>
@@ -654,7 +685,71 @@ let theme = 'auto';
 try{ const t=localStorage.getItem('wd-theme'); if(t==='light'||t==='dark') theme=t; }catch(e){}
 function applyTheme(){ if(theme==='auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme=theme; }
 applyTheme();
-const GROUPS = {back:'Спина',chest:'Грудь',mix:'Спина + грудь',legs:'Ноги',box:'Бокс',cardio:'Кардио'};
+/* v27: ПЕРСОНАЛИЗАЦИЯ — что показывать и какими цветами. Хранится на этом телефоне (xset-pers).
+   Выключенное прячется классом p-off-<ключ> на <html>; цвета маркеров — переменные --dot-X и --hl-X поверх стандартных. */
+const PERS_DEF = {timer:true, cups:true, cnt:true, daynote:true, exnote:true, repeat:true, weekdots:true, monthsum:true, col:{}};
+let pers = {...PERS_DEF, col:{}};
+try{ const v=JSON.parse(localStorage.getItem('xset-pers')||'null'); if(v) pers={...PERS_DEF, ...v, col:{...(v.col||{})}}; }catch(e){}
+const PERS_KEYS = ['timer','cups','cnt','daynote','exnote','repeat','weekdots','monthsum'];
+/* палитра маркеров: первая у каждого вида — его стандартный цвет */
+const PALETTE = ['#ffcc00','#ff9500','#ff3b30','#ff2d55','#af52de','#5e5ce6','#32ade6','#30d158'];
+const COL_DEF = {s:'#ffcc00', c:'#30d158', o:'#32ade6'};
+function applyPers(){
+  const r = document.documentElement;
+  PERS_KEYS.forEach(k=>r.classList.toggle('p-off-'+k, !pers[k]));
+  Object.keys(COL_DEF).forEach(k=>{ const c=pers.col[k];
+    if(c){ r.style.setProperty('--dot-'+k, c); r.style.setProperty('--hl-'+k, `color-mix(in srgb, ${c} var(--hla), transparent)`); }
+    else { r.style.removeProperty('--dot-'+k); r.style.removeProperty('--hl-'+k); } });
+}
+function savePers(){ try{ localStorage.setItem('xset-pers', JSON.stringify(pers)); }catch(e){} applyPers(); }
+applyPers();
+/* v27: ТАЙМЕР ОТДЫХА — секундомер внизу экрана тренировки. Касание: старт; ещё касание: стоп (время остаётся бледным до следующего старта).
+   Считает от метки времени — не сбивается при перерисовке, блокировке экрана и перезапуске (sessionStorage). */
+let REST = {t0:0, last:0};
+try{ const v=JSON.parse(sessionStorage.getItem('xset-rest')||'null'); if(v) REST=v; }catch(e){}
+const mmss = s=>`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+function restHTML(){
+  if(!pers.timer) return '';
+  const run = REST.t0>0, s = run ? Math.floor((Date.now()-REST.t0)/1000) : REST.last;
+  return `<button id="rest" class="rest ${run?'run':''} ${!run&&s?'done':''}" data-act="rest" aria-label="${run?'Остановить таймер отдыха':'Засечь отдых'}">
+    <svg class="rest-ic" viewBox="0 0 24 24"><circle cx="12" cy="13.5" r="8"/><path d="M12 9.5v4.2l2.6 1.6M9.5 2.8h5M12 2.8v2.7"/></svg>
+    <span class="rest-t">${run||s?mmss(s):'отдых'}</span>${run?'<span class="rest-x">стоп</span>':''}</button>`;
+}
+function restTick(){ const el=document.querySelector('#rest .rest-t'); if(el && REST.t0>0) el.textContent = mmss(Math.floor((Date.now()-REST.t0)/1000)); }
+setInterval(restTick, 250);
+function restToggle(){
+  if(REST.t0>0){ REST.last=Math.floor((Date.now()-REST.t0)/1000); REST.t0=0; } else { REST.t0=Date.now(); REST.last=0; }
+  try{ sessionStorage.setItem('xset-rest', JSON.stringify(REST)); }catch(e){}
+  try{ navigator.vibrate && navigator.vibrate(12); }catch(e){}
+  const el=document.getElementById('rest'); if(el) el.outerHTML = restHTML();
+}
+function persSheet(){
+  const sw = (k,t,sub)=>`<button class="set-row" data-act="pers" data-k="${k}"><div><b>${t}</b>${sub?`<small>${sub}</small>`:''}</div><span class="switch ${pers[k]?'on':''}" role="switch" aria-checked="${!!pers[k]}"></span></button>`;
+  const colRow = k=>{ const cur = pers.col[k]||COL_DEF[k];
+    return `<div class="set-row col"><b>${HL[k]}</b><div class="pal">${PALETTE.map(c=>`<button class="pal-c ${c===cur?'on':''}" data-act="pers-col" data-k="${k}" data-c="${c}" aria-label="${HL[k]}: цвет ${c}"><i style="background:color-mix(in srgb, ${c} var(--hla), transparent)"></i></button>`).join('')}</div></div>`; };
+  sheet(`<div class="sheet-bar"><button class="bar-btn l back" data-act="settings" aria-label="Назад к настройкам">${CHEV}</button><h2>Персонализация</h2><button class="bar-btn strong" data-act="close">Готово</button></div>
+    <div class="cap">Тема</div>
+    <div class="group"><div class="set-row col"><div class="seg">${[['auto','Авто'],['light','Светлая'],['dark','Тёмная']].map(([k,n])=>`<button class="${theme===k?'on':''}" data-act="theme" data-t="${k}">${n}</button>`).join('')}</div></div></div>
+    <div class="cap">Цвета маркеров</div>
+    <div class="group">${Object.keys(COL_DEF).map(colRow).join('')}</div>
+    <div class="foot">Маркер выделяет дату в Дневнике и Календаре.</div>
+    <div class="cap">Тренировка</div>
+    <div class="group">
+      ${sw('timer','Таймер отдыха','Внизу экрана тренировки — засечь отдых между подходами')}
+      ${sw('daynote','Заметка дня')}
+      ${sw('exnote','Заметки к упражнениям')}
+      ${sw('cnt','Счётчик подходов','«3 из 5» у каждого упражнения')}
+      ${sw('cups','Кубки рекордов','Когда вес больше, чем когда-либо раньше')}
+      ${sw('repeat','«Повторить тренировку сегодня»','Кнопка внизу прошлой тренировки')}
+    </div>
+    <div class="cap">Календарь</div>
+    <div class="group">
+      ${sw('weekdots','Тренировки за неделю','Столбик точек справа')}
+      ${sw('monthsum','Итог месяца','Под календарём')}
+    </div>
+    <div class="foot">Выключенное только прячется — записи не стираются.</div>`);
+}
+const GROUPS ={back:'Спина',chest:'Грудь',mix:'Спина + грудь',legs:'Ноги',box:'Бокс',cardio:'Кардио'};
 function groupOf(w){
   const t = w.title.toLowerCase();
   if(t.includes('спина')&&t.includes('грудь')) return 'mix';
@@ -863,7 +958,7 @@ function renderWorkout(){
     ${!w.ex.length&&!w.cardio.length?'<p class="note">Упражнений нет. Добавьте первое.</p>':''}
     <button class="add-ex" data-act="add-ex">${PENCIL}Записать упражнение</button>${legend}
     <div class="foot-acts">${w.ex.length&&w.date<TODAY?`<button class="btn" data-act="repeat">Повторить эту тренировку сегодня</button>`:''}
-    <button class="link-danger" data-act="del-w" data-id="${w.id}">${ERASER}Стереть запись</button></div>`;
+    <button class="link-danger" data-act="del-w" data-id="${w.id}">${ERASER}Стереть запись</button></div>${restHTML()}`;
   st.lastDrawn = null;
 }
 
@@ -994,9 +1089,8 @@ function exNewSheet(name=''){
 function settingsSheet(){
   const n = workouts.length;
   sheet(`<div class="sheet-bar"><span></span><h2>Настройки</h2><button class="bar-btn strong" data-act="close">Готово</button></div>
-    <div class="cap">Оформление</div>
-    <div class="group">
-      <div class="set-row col"><b>Тема</b><div class="seg">${[['auto','Авто'],['light','Светлая'],['dark','Тёмная']].map(([k,n])=>`<button class="${theme===k?'on':''}" data-act="theme" data-t="${k}">${n}</button>`).join('')}</div></div>
+    <div class="group" style="margin-top:12px">
+      <button class="set-row" data-act="pers-open"><div><b>Персонализация</b><small>Тема, цвета маркеров, что показывать</small></div><span class="chev">${CHEV}</span></button>
     </div>
     <div class="cap">Данные</div>
     <div class="group">
@@ -1030,7 +1124,7 @@ function renderCal(){
   const [Y,M] = st.calMonth.split('-').map(Number);
   const first = new Date(Y,M-1,1), start = new Date(first); start.setDate(1-((first.getDay()+6)%7));
   const byDate = {}; workouts.forEach(w=>(byDate[w.date]=byDate[w.date]||[]).push(w));
-  let cells = ['пн','вт','ср','чт','пт','сб','вс'].map((d,i)=>`<div class="wh ${i>4?'we':''}">${d}</div>`).join('')+'<div class="wh" title="тренировок за неделю">нед</div>';
+  let cells = ['пн','вт','ср','чт','пт','сб','вс'].map((d,i)=>`<div class="wh ${i>4?'we':''}">${d}</div>`).join('')+'<div class="wh wkh" title="тренировок за неделю">нед</div>';
   const d = new Date(start);
   for(let wk=0; wk<6; wk++){
     if(wk>0 && d.getMonth()!==M-1 && d>first) break;
@@ -1437,7 +1531,11 @@ document.addEventListener('click', ev=>{
     case 'lib-arch': { const n=b.dataset.n; archived.add(n); render(); toast(`«${esc(n)}» в архиве`, `<button data-act="lib-unarch" data-n="${esc(n)}">Вернуть</button>`); break; }
     case 'lib-unarch': archived.delete(b.dataset.n); document.querySelectorAll('.toast').forEach(x=>x.remove()); render(); break;
     case 'settings': settingsSheet(); break;
-    case 'theme': theme=b.dataset.t; applyTheme(); try{ if(theme==='auto') localStorage.removeItem('wd-theme'); else localStorage.setItem('wd-theme',theme);}catch(e){} settingsSheet(); break;
+    case 'theme': theme=b.dataset.t; applyTheme(); try{ if(theme==='auto') localStorage.removeItem('wd-theme'); else localStorage.setItem('wd-theme',theme);}catch(e){} persSheet(); break;
+    case 'pers-open': persSheet(); break;
+    case 'pers': { const k=b.dataset.k; pers[k]=!pers[k]; savePers(); const s=b.querySelector('.switch'); s.classList.toggle('on',pers[k]); s.setAttribute('aria-checked',pers[k]); if(k==='timer'&&st.screen==='workout') render(); break; }
+    case 'pers-col': { const k=b.dataset.k, c=b.dataset.c; if(c===COL_DEF[k]) delete pers.col[k]; else pers.col[k]=c; savePers(); b.parentNode.querySelectorAll('.pal-c').forEach(x=>x.classList.toggle('on',x===b)); break; }
+    case 'rest': restToggle(); break;
   }
 });
 document.addEventListener('keydown',e=>{
@@ -1449,7 +1547,7 @@ document.addEventListener('keydown',e=>{
 
 /* ЭТАП 2: ХРАНЕНИЕ НА ТЕЛЕФОНЕ. Всё состояние — одним JSON в localStorage (ключ xset-data), пишется после каждого действия.
    Копия = тот же JSON файлом (Настройки → «Сохранить копию»), загрузка — оттуда же; принимает и data/history.json (массив тренировок). */
-const APP_VER = '1.7.4';
+const APP_VER = '1.8';
 const DB_KEY = 'xset-data';
 /* ЭТАП 3 (облако): для слияния телефонов у тренировки есть метка изменения upd, у стёртых — tomb[id]=когда стёрта,
    у настроек (программы, база, архив…) — общая метка setUpd. Метки ставит save() сам, сравнивая с прошлым видом (known). */
