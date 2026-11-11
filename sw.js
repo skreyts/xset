@@ -1,6 +1,6 @@
 // Xset: работа без интернета. Свои файлы — сначала из сети (свежая версия), без сети — из кэша.
 // Шрифты Google — из кэша (не меняются). При выпуске новой версии поднять VER.
-const VER = 'xset-1.5';
+const VER = 'xset-1.6';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -24,7 +24,8 @@ self.addEventListener('fetch', e => {
     return;
   }
   if (url.origin !== location.origin) return;
-  e.respondWith(fetch(req).then(res => {
+  // cache:'no-cache' — мимо HTTP-кэша браузера (GitHub Pages держит файлы 10 мин), иначе новая версия приходит не сразу
+  e.respondWith(fetch(req, {cache: 'no-cache'}).then(res => {
     if (res.ok) { const copy = res.clone(); caches.open(VER).then(c => c.put(req, copy)); }
     return res;
   }).catch(() => caches.match(req, {ignoreSearch: true}).then(r => r || caches.match('./index.html'))));

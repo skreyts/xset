@@ -787,7 +787,7 @@ function rowSummary(w){
 }
 
 function renderList(){
-  let html = `<div class="navrow"><span></span><button class="icon-btn tint" data-act="settings" aria-label="Настройки">${GEAR}</button></div>
+  let html = `<div class="navrow"><button class="icon-btn tint" data-act="nav" data-to="search" aria-label="Поиск упражнения"><svg viewBox="0 0 24 24" style="stroke-width:1.8"><circle cx="10.2" cy="10.2" r="7.6"/><path d="M15.8 15.8L22 22"/></svg></button><button class="icon-btn tint" data-act="settings" aria-label="Настройки">${GEAR}</button></div>
     <div class="titlebar"><h1>Дневник</h1><button class="addbtn" data-act="new" aria-label="Записать тренировку">${PLUS}</button></div>`;
   const months = [...new Set(sorted().map(w=>w.date.slice(0,7)))];
   if(months.length>1) html += `<div class="mindex" aria-label="Перейти к месяцу">${months.map(m=>`<span data-m="${m}">${MONTHS[+m.slice(5)-1].slice(0,3).toLowerCase()}</span>`).join('')}</div>`;
@@ -908,6 +908,34 @@ function renderProg(){
       ?`<button class="link-danger" style="color:var(--tint)" data-act="prog-unarch" data-id="${p.id}">Вернуть из архива</button><button class="link-danger" data-act="prog-del" data-id="${p.id}">Удалить программу</button>`
       :`${p.id!==activeProg?`<button class="btn" data-act="prog-activate">Сделать текущей</button>`:''}<button class="link-danger" style="color:var(--tint)" data-act="prog-arch" data-id="${p.id}">Убрать в архив</button>`}</div>`;
 }
+/* v1.6 ПОИСК (лупа в Дневнике): упражнения, которые есть в записях; пусто — все, недавние сверху.
+   Нажатие — карточка упражнения с историей от последней тренировки к самой старой. */
+function searchItems(q){
+  const m = new Map();
+  sorted().forEach(w=>{
+    const add = (n,c)=>{ const x = m.get(n); if(x) x.uses++; else m.set(n, {n, uses:1, last:w.date, c}); };
+    new Set(w.ex.filter(e=>effSets(e.sets).some(isDone)).map(e=>e.name)).forEach(n=>add(n,false));
+    new Set(w.cardio.map(k=>k.kind)).forEach(n=>add(n,true));
+  });
+  return [...m.values()].filter(x=>!q||matches(x.n,q));
+}
+function searchResults(){
+  const q = (st.srchQ||'').trim(), items = searchItems(q);
+  return items.length ? `<div class="group" style="margin-top:12px">${items.map(x=>`<button class="lib-row prow" data-act="ex-open" data-n="${esc(x.n)}">
+      <span class="pm"><span class="n">${q?hl(x.n,q):esc(x.n)}</span><small>${x.uses} ${plural(x.uses,'тренировка','тренировки','тренировок')} · последний раз ${fmt(x.last)}</small></span><span class="chev">${CHEV}</span></button>`).join('')}</div>`
+    : `<p class="note">${q?'Ничего не нашлось.':'Записей пока нет.'}</p>`;
+}
+function renderSearch(){
+  $main.innerHTML = `<div class="top"><button class="back" data-act="nav" data-to="list">${CHEV}Дневник</button><span></span></div>
+    <h1 class="page-h1">Поиск</h1>
+    <div class="search">${SEARCH_ICON}<input type="search" id="srch-q" placeholder="Упражнение, например «жим ногами»" value="${esc(st.srchQ||'')}" aria-label="Поиск упражнения" autocomplete="off" enterkeyhint="search"></div>
+    <div id="srch-res">${searchResults()}</div>`;
+  if(st.srchFocus){ st.srchFocus = false; const i = document.getElementById('srch-q'); setTimeout(()=>i && i.focus({preventScroll:true}), 60); }
+}
+/* лупа из Дневника — новый поиск: поле пустое, сразу клавиатура (до основного обработчика нажатий) */
+document.addEventListener('click', ev=>{ if(ev.target.closest('[data-to="search"]')){ st.srchQ = ''; st.srchFocus = true; } }, true);
+document.addEventListener('input', ev=>{ if(ev.target.id==='srch-q'){ st.srchQ = ev.target.value; document.getElementById('srch-res').innerHTML = searchResults(); } });
+document.addEventListener('keydown', ev=>{ if(ev.key==='Enter' && ev.target.id==='srch-q') ev.target.blur(); });
 /* карточка упражнения: сводка, история по датам (нажатие — открыть тренировку), в архив / вернуть */
 function renderEx(){
   const n = st.ex, isCardio = cardioLib.includes(n);
@@ -917,7 +945,7 @@ function renderEx(){
     return ds.length?{w,txt:ds.map(setShort).join(', '),best:Math.max(0,...ds.map(s=>s.w||0))}:null;
   }).filter(Boolean);
   const best = Math.max(0,...hist.map(h=>h.best||0)), arch = archived.has(n);
-  const back = st.exFrom==='prog' && P(st.prog) ? esc(P(st.prog).name) : st.exFrom==='workout' ? 'Тренировка' : 'Упражнения';
+  const back = st.exFrom==='prog' && P(st.prog) ? esc(P(st.prog).name) : st.exFrom==='workout' ? 'Тренировка' : st.exFrom==='search' ? 'Поиск' : 'Упражнения';
   $main.innerHTML = `<div class="top"><button class="back" data-act="ex-back">${CHEV}${back}</button><button data-act="ex-rename">Изменить</button></div>
     <h1 class="page-h1">${esc(n)}</h1>
     <div class="progress">${hist.length?`${hist.length} ${plural(hist.length,'тренировка','тренировки','тренировок')} · последний раз ${fmt(hist[0].w.date)}${best?` · максимум <b>${kg(best)} кг</b>`:''}`:'Ещё не делали'}</div>
@@ -1029,12 +1057,14 @@ document.addEventListener('touchend',e=>{ if(tx===null) return; const dx=e.chang
 
 function render(){
   /* карточка упражнения, открытая из тренировки, — вкладка той тренировки */
-  const sc = st.screen==='ex'&&st.exFrom==='workout' ? 'workout' : st.screen;
-  document.getElementById('nav-list').classList.toggle('on',sc==='list'||(sc==='workout'&&st.from==='list'));
+  /* поиск и открытое из него упражнение — вкладка «Дневник» */
+  const sc = st.screen==='ex'&&st.exFrom==='workout' ? 'workout' : st.screen==='ex'&&st.exFrom==='search' ? 'search' : st.screen;
+  const diary = s=>s==='list'||s==='search'||(s==='ex'&&st.exFrom==='search');
+  document.getElementById('nav-list').classList.toggle('on',diary(sc)||(sc==='workout'&&diary(st.from)));
   document.getElementById('nav-cal').classList.toggle('on',sc==='cal'||(sc==='workout'&&st.from==='cal'));
-  const tab3 = s=>['progs','prog','exlib','ex'].includes(s);
+  const tab3 = s=>['progs','prog','exlib'].includes(s)||(s==='ex'&&st.exFrom!=='search');
   document.getElementById('nav-lib').classList.toggle('on',tab3(sc)||(sc==='workout'&&tab3(st.from)));
-  ({list:renderList,workout:renderWorkout,progs:renderProgs,prog:renderProg,exlib:renderLib,ex:renderEx,cal:renderCal})[st.screen]();
+  ({list:renderList,workout:renderWorkout,progs:renderProgs,prog:renderProg,exlib:renderLib,ex:renderEx,cal:renderCal,search:renderSearch})[st.screen]();
   /* v23: «+» из заголовка списка переезжает в круглую кнопку внизу по центру */
   const fab = document.getElementById('fab'), ab = $main.querySelector('.titlebar .addbtn');
   fab.hidden = !ab;
@@ -1321,7 +1351,7 @@ document.addEventListener('click', ev=>{
       render(); toast(`«${esc(p.name)}» в архиве`, `<button data-act="prog-unarch" data-id="${p.id}">Вернуть</button>`); break; }
     case 'prog-unarch': { const p=P(b.dataset.id); if(!p) break; p.arch=false; if(!activeProg) activeProg=p.id; document.querySelectorAll('.toast').forEach(x=>x.remove()); render(); break; }
     case 'prog-del': { const p=P(b.dataset.id); confirmSheet(esc(p.name), 'Программа будет удалена. Записи в дневнике останутся.', ()=>{ programs=programs.filter(o=>o!==p); st.screen='progs'; }, 'Удалить программу'); break; }
-    case 'ex-open': st.ex=b.dataset.n; st.exFrom=st.screen==='prog'?'prog':st.screen==='workout'?'workout':'exlib'; st.screen='ex'; render(); scrollTo(0,0); break;
+    case 'ex-open': st.ex=b.dataset.n; st.exFrom=st.screen==='prog'?'prog':st.screen==='workout'?'workout':st.screen==='search'?'search':'exlib'; st.screen='ex'; render(); scrollTo(0,0); break;
     case 'ex-back': st.screen=st.exFrom||'exlib'; if(st.screen==='workout'&&!W(st.open)) st.screen='list'; render(); scrollTo(0,0); break;
     case 'ex-rename': { const isC=cardioLib.includes(st.ex); st.cmTmp=cmode(st.ex); sheet(`${bar('Упражнение', L('close'), R('exr-save'))}
       <div class="field"><label for="exr-name">Название</label><input type="text" id="exr-name" value="${esc(st.ex)}"></div>
@@ -1388,7 +1418,7 @@ document.addEventListener('keydown',e=>{
 
 /* ЭТАП 2: ХРАНЕНИЕ НА ТЕЛЕФОНЕ. Всё состояние — одним JSON в localStorage (ключ xset-data), пишется после каждого действия.
    Копия = тот же JSON файлом (Настройки → «Сохранить копию»), загрузка — оттуда же; принимает и data/history.json (массив тренировок). */
-const APP_VER = '1.5';
+const APP_VER = '1.6';
 const DB_KEY = 'xset-data';
 /* ЭТАП 3 (облако): для слияния телефонов у тренировки есть метка изменения upd, у стёртых — tomb[id]=когда стёрта,
    у настроек (программы, база, архив…) — общая метка setUpd. Метки ставит save() сам, сравнивая с прошлым видом (known). */
@@ -1798,9 +1828,9 @@ close = function(){
     sd.style.backgroundColor='transparent'; const sh=sd.querySelector('.sheet'); if(sh) sh.style.transform='translateY(105%)'; }));
   setTimeout(()=>sd.remove(), 260);
 };
-const TAB = s=> s==='list'?'list' : s==='cal'?'cal' : 'lib';
-const DEPTH = {list:0, cal:0, progs:0, prog:1, exlib:1, ex:2};
-const navPos = ()=> st.screen==='ex'&&st.exFrom==='workout' ? {g:TAB(st.from), d:(DEPTH[st.from]||0)+2, k:'ex'} : st.screen==='workout' ? {g:TAB(st.from), d:(DEPTH[st.from]||0)+1, k:'w'+st.open} : {g:TAB(st.screen), d:DEPTH[st.screen]||0, k:st.screen};
+const TAB = s=> s==='list'||s==='search'?'list' : s==='cal'?'cal' : 'lib';
+const DEPTH = {list:0, cal:0, progs:0, prog:1, exlib:1, ex:2, search:1};
+const navPos = ()=> st.screen==='ex'&&st.exFrom==='search' ? {g:'list', d:2, k:'ex'} : st.screen==='ex'&&st.exFrom==='workout' ? {g:TAB(st.from), d:(DEPTH[st.from]||0)+2, k:'ex'} : st.screen==='workout' ? {g:TAB(st.from), d:(DEPTH[st.from]||0)+1, k:'w'+st.open} : {g:TAB(st.screen), d:DEPTH[st.screen]||0, k:st.screen};
 const _render = render;
 let lastPos = navPos();   /* состояние меняется ДО render(), поэтому сравниваем с прошлой отрисовкой */
 render = function(){
