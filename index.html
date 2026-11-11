@@ -597,7 +597,12 @@ input.val::placeholder{color:var(--muted)}
 /* v25: заметка к упражнению — рукописная, прямо на странице, под названием (мельче заметки дня) */
 .exnote{font-family:var(--hand);font-weight:var(--hand-w)!important;font-style:var(--fst,normal);font-size-adjust:var(--fsa);color:var(--ink);filter:url(#ink);
   font-size:17px;line-height:1.25;margin:3px 0 0 32px;padding:1px 0;min-height:21px;outline:none;caret-color:var(--ink);cursor:text;overflow-wrap:anywhere}
-.exnote:empty::before{content:attr(data-ph);color:var(--ink-soft);opacity:.7}
+.exnote:empty::before{content:attr(data-ph);color:var(--note);opacity:.45}
+/* заметка — серым карандашом, не чернилами названия: светлая тема тёмно-серый, тёмная — серый (тёмно-серый на тёмной бумаге не читается) */
+:root{--note:#5c6068}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--note:#8d9097}}
+:root[data-theme="dark"]{--note:#8d9097}
+.exnote{color:var(--note)!important;caret-color:var(--note)!important}
 .exnote+.sets{margin-top:6px!important}
 </style>
 </head>
@@ -1444,7 +1449,7 @@ document.addEventListener('keydown',e=>{
 
 /* ЭТАП 2: ХРАНЕНИЕ НА ТЕЛЕФОНЕ. Всё состояние — одним JSON в localStorage (ключ xset-data), пишется после каждого действия.
    Копия = тот же JSON файлом (Настройки → «Сохранить копию»), загрузка — оттуда же; принимает и data/history.json (массив тренировок). */
-const APP_VER = '1.7.2';
+const APP_VER = '1.7.3';
 const DB_KEY = 'xset-data';
 /* ЭТАП 3 (облако): для слияния телефонов у тренировки есть метка изменения upd, у стёртых — tomb[id]=когда стёрта,
    у настроек (программы, база, архив…) — общая метка setUpd. Метки ставит save() сам, сравнивая с прошлым видом (known). */
