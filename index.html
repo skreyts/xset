@@ -1113,7 +1113,7 @@ function renderWorkout(){
     ${!w.ex.length&&!w.cardio.length?'<p class="note">Упражнений нет. Добавьте первое.</p>':''}
     <button class="add-ex" data-act="add-ex">${PENCIL}Записать упражнение</button>${legend}
     <div class="foot-acts">${w.ex.length&&w.date<TODAY?`<button class="btn" data-act="repeat">Повторить эту тренировку сегодня</button>`:''}
-    <button class="link-danger" data-act="del-w" data-id="${w.id}">${ERASER}Стереть запись</button></div>${restHTML()}`;
+    <button class="link-danger" data-act="del-w" data-id="${w.id}">${ERASER}Стереть тренировку</button></div>${restHTML()}`;
   st.lastDrawn = null;
 }
 
@@ -1536,7 +1536,7 @@ document.addEventListener('pointerdown', e=>{
   /* долгое нажатие на строку тренировки → подтверждение удаления (как контекстное меню iOS) */
   clearTimeout(lpTimer);
   if(f.dataset.act==='open') lpTimer = setTimeout(()=>{ if(sw&&!sw.moved){ sw=null; swEat=true; setTimeout(()=>swEat=false,400);
-    const x=W(+f.dataset.id); if(x) confirmSheet(`${fmt(x.date)} · ${esc(x.title)}`, 'Запись будет стёрта из дневника.', ()=>{workouts=workouts.filter(o=>o!==x)}, 'Стереть запись'); } }, 550);
+    const x=W(+f.dataset.id); if(x) confirmSheet(`${fmt(x.date)} · ${esc(x.title)}`, 'Тренировка будет стёрта из дневника.', ()=>{workouts=workouts.filter(o=>o!==x)}, 'Стереть тренировку'); } }, 550);
 });
 let lpTimer = null;
 document.addEventListener('pointerup', ()=>clearTimeout(lpTimer));
@@ -1577,7 +1577,7 @@ document.addEventListener('click', ev=>{
     case 'cal-step': calStep(+b.dataset.d); break;
     case 'cal-today': st.calMonth=TODAY.slice(0,7); st.calDay=null; render(); break;
     case 'repeat': { const nw=copyWorkout(w,TODAY); workouts.push(nw); st.open=nw.id; render(); scrollTo(0,0); break; }
-    case 'del-w': { const x=W(+b.dataset.id); confirmSheet(`${fmt(x.date)} · ${esc(x.title)}`, 'Запись будет стёрта из дневника.', ()=>{workouts=workouts.filter(o=>o!==x)}, 'Стереть запись'); break; }
+    case 'del-w': { const x=W(+b.dataset.id); confirmSheet(`${fmt(x.date)} · ${esc(x.title)}`, 'Тренировка будет стёрта из дневника.', ()=>{workouts=workouts.filter(o=>o!==x)}, 'Стереть тренировку'); break; }
     case 'yes': pending&&pending(); pending=null; close(); render(); break;
     case 'close': close(); break;
     case 'new': newSheet(b.dataset.d||TODAY); break;
