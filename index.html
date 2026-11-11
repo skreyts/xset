@@ -594,8 +594,6 @@ svg.cup,.msum svg.cup,.msets svg.cup{filter:none!important;fill:var(--cup)!impor
 input.val{width:100%;min-width:0;background:transparent;border:0;outline:none;padding:0;color:var(--label);text-align:center;font-family:var(--ui)}
 input.val::placeholder{color:var(--muted)}
 .set svg.cup path{fill:inherit!important;stroke:inherit!important;stroke-width:inherit!important;stroke-dasharray:none!important;animation:none!important}
-/* v25: название не влезло справа от даты → своя строка, по центру экрана */
-.head.wrapped .oval{margin-left:auto;margin-right:auto;text-align:center}
 /* v25: заметка к упражнению — рукописная, прямо на странице, под названием (мельче заметки дня) */
 .exnote{font-family:var(--hand);font-weight:var(--hand-w)!important;font-style:var(--fst,normal);font-size-adjust:var(--fsa);color:var(--ink);filter:url(#ink);
   font-size:17px;line-height:1.25;margin:3px 0 0 32px;padding:1px 0;min-height:21px;outline:none;caret-color:var(--ink);cursor:text;overflow-wrap:anywhere}
@@ -862,7 +860,6 @@ function renderWorkout(){
     <div class="foot-acts">${w.ex.length&&w.date<TODAY?`<button class="btn" data-act="repeat">Повторить эту тренировку сегодня</button>`:''}
     <button class="link-danger" data-act="del-w" data-id="${w.id}">${ERASER}Стереть запись</button></div>`;
   st.lastDrawn = null;
-  fitHead();
 }
 
 function renderLib(){
@@ -1447,7 +1444,7 @@ document.addEventListener('keydown',e=>{
 
 /* ЭТАП 2: ХРАНЕНИЕ НА ТЕЛЕФОНЕ. Всё состояние — одним JSON в localStorage (ключ xset-data), пишется после каждого действия.
    Копия = тот же JSON файлом (Настройки → «Сохранить копию»), загрузка — оттуда же; принимает и data/history.json (массив тренировок). */
-const APP_VER = '1.7.1';
+const APP_VER = '1.7.2';
 const DB_KEY = 'xset-data';
 /* ЭТАП 3 (облако): для слияния телефонов у тренировки есть метка изменения upd, у стёртых — tomb[id]=когда стёрта,
    у настроек (программы, база, архив…) — общая метка setUpd. Метки ставит save() сам, сравнивая с прошлым видом (known). */
@@ -1749,11 +1746,6 @@ document.addEventListener('input', ev=>{ const t=ev.target; if(!isNote(t)) retur
   if(t.id==='daynote') w.note=v; else { const e=w.ex[+t.dataset.e]; if(e) e.note=v; } });
 document.addEventListener('keydown', ev=>{ if(isNote(ev.target)&&ev.key==='Enter'){ ev.preventDefault(); ev.target.blur(); } });
 document.addEventListener('focusout', ev=>{ if(isNote(ev.target)){ if(!ev.target.textContent.trim()) ev.target.textContent=''; save(); } });
-/* v25: название тренировки не влезло справа от даты (перенеслось) → по центру экрана */
-function fitHead(){ const h=$main.querySelector('.head'); if(!h) return; const d=h.querySelector('.d'), o=h.querySelector('.oval'); if(!d||!o) return;
-  h.classList.remove('wrapped'); if(o.offsetTop > d.offsetTop + d.offsetHeight/2) h.classList.add('wrapped'); }
-addEventListener('resize', fitHead);
-try{ document.fonts && document.fonts.ready.then(fitHead); }catch(e){}
 /* история пользователя с ПК (только localhost): ?import → history.json с сервера, ДОБАВЛЯЕТСЯ к записям (по дате+названию без дублей) */
 async function importFromServer(){
   try{
