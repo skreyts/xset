@@ -2050,7 +2050,8 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 .tdock .tval.hop{animation:tbounce .7s cubic-bezier(.33,0,.67,1)}
 </style>`);
 let tpPrev = 0;
-addEventListener('scroll', ()=>setTimeout(()=>{ if(tpPrev===0 && TP>0){ const v=document.querySelector('#tdock .tval'); if(v){ v.classList.remove('hop'); void v.offsetWidth; v.classList.add('hop'); } } tpPrev=TP; }), {passive:true});
+/* v33: отскок в обе стороны — когда начал выезжать (0→) и когда спрятался до конца (→0) */
+addEventListener('scroll', ()=>setTimeout(()=>{ if((tpPrev===0 && TP>0) || (tpPrev>0 && TP===0)){ const v=document.querySelector('#tdock .tval'); if(v){ v.classList.remove('hop'); void v.offsetWidth; v.classList.add('hop'); } } tpPrev=TP; }), {passive:true});
 const dockSpare = ()=> Math.max(0, document.documentElement.scrollHeight - (scrollY + innerHeight));
 function dockLayout(){
   const el=document.getElementById('tdock'), pg=document.querySelector('.page');
