@@ -780,8 +780,9 @@ function setHTML(s0, i, sets0, ei, pr){
 function rowSummary(w){
   const c = count(w), parts = [];
   if(w.ex.length) parts.push(`${w.ex.length} ${plural(w.ex.length,'упражнение','упражнения','упражнений')} · ${c.d===c.t?`${c.t} ${plural(c.t,'подход','подхода','подходов')}`:`${c.d} из ${c.t} ${plural(c.t,'подхода','подходов','подходов')}`}`);
-  w.cardio.forEach(k=>parts.push(`${k.kind.toLowerCase()} ${cardioText(k)}`.trim()));
-  if(w.note) parts.push(esc(w.note));
+  const same = s => String(s||'').trim().toLowerCase() === String(w.title||'').trim().toLowerCase(); // не повторять название тренировки
+  w.cardio.forEach(k=>{ const t = same(k.kind) ? cardioText(k) : `${k.kind.toLowerCase()} ${cardioText(k)}`.trim(); if(t) parts.push(t); });
+  if(w.note && !same(w.note)) parts.push(esc(w.note));
   return parts.join(' · ');
 }
 
