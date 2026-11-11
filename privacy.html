@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Xset — конфиденциальность</title>
+<style>
+  :root { color-scheme: light dark; --bg:#f6f3ec; --fg:#1d1d1f; --muted:#6e6e73; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#171b23; --fg:#f2f2f7; --muted:#9a9aa1; } }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 -apple-system, "Segoe UI", Roboto, Inter, sans-serif; }
+  main { max-width:640px; margin:0 auto; padding:32px 16px 48px; }
+  h1 { font-size:28px; margin:0 0 4px; } h2 { font-size:19px; margin:28px 0 6px; }
+  p, li { margin:6px 0; } .muted { color:var(--muted); font-size:14px; }
+  a { color:#3550c8; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Xset — конфиденциальность</h1>
+  <p class="muted">Обновлено 11.11.2026</p>
+
+  <p>Xset — бесплатный дневник тренировок. У приложения нет своего сервера: оно не собирает, не продаёт и не передаёт ваши данные третьим лицам. Рекламы и аналитики нет.</p>
+
+  <h2>Где хранятся записи</h2>
+  <p>Тренировки хранятся в памяти вашего браузера на устройстве. Если вы входите через Google, приложение сохраняет копию в таблицу «Xset» на <b>вашем</b> Google Диске — чтобы записи не пропали при смене телефона.</p>
+
+  <h2>Доступ к Google</h2>
+  <ul>
+    <li>Запрашивается только разрешение <code>drive.file</code>: приложение видит лишь файлы, которые создало само. Остальной Диск ему недоступен.</li>
+    <li>Данные из Google используются только для показа и сохранения ваших тренировок внутри Xset и никуда больше не отправляются.</li>
+    <li>Отозвать доступ можно в любой момент: <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>. Таблицу можно удалить с Диска как обычный файл.</li>
+  </ul>
+  <p>Использование данных Google API соответствует <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, включая требования Limited Use.</p>
+
+  <h2 lang="en">In English</h2>
+  <p lang="en">Xset is a free workout diary with no server of its own. Workouts are stored in your browser and, if you sign in with Google, in a spreadsheet in your own Google Drive using the <code>drive.file</code> scope (access only to files the app created). No data is collected, sold or shared. Revoke access any time at myaccount.google.com/permissions. Use of Google API data adheres to the Google API Services User Data Policy, including the Limited Use requirements.</p>
+
+  <p class="muted"><a href="./">← Открыть Xset</a></p>
+</main>
+</body>
+</html>
