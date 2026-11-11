@@ -2039,7 +2039,7 @@ document.addEventListener('pointercancel', tRelease);
    насколько прокручено: листаешь вниз — выезжает вместе со страницей, листаешь назад — прячется. Отступ снизу у .page
    подобран так, что конец записи всегда на GAP выше таймера (ничего не перекрывает). Короткая страница добирается
    min-height до «экран + H», чтобы было что листать. Касание булавки — плавная прокрутка (открыть/закрыть). */
-const DOCK_GAP = 16, DOCK_PADC = 12;
+const DOCK_GAP = 56, DOCK_PADC = 12;   /* 56: «Стереть запись» того же цвета — не должна читаться как кнопка таймера */
 const dockSpare = ()=> Math.max(0, document.documentElement.scrollHeight - (scrollY + innerHeight));
 function dockLayout(){
   const el=document.getElementById('tdock'), pg=document.querySelector('.page');
