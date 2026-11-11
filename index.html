@@ -790,7 +790,7 @@ function dockInner(){
   return `<button class="tval" id="tval" data-act="rest" aria-label="Таймер отдыха">${mmss(Math.ceil(v))}</button>
     <div class="tbody"><div class="tin">
       <div class="tbox" id="tbox"><div id="tsvg">${tunerSVG(run||paused?v:REST.pick, run||paused)}</div></div>
-      <div class="thint">${run?(v<=10?'время истекает…':'отдых'):paused?'пауза':fin?'готово!':'смахни шкалу'}</div>
+      <div class="thint">${run?(v<=10?'время истекает…':'&nbsp;'):paused?'пауза':'смахни шкалу'}</div>
       <div class="tbtns">${run?`<button data-act="t-pause">пауза</button><button data-act="t-reset">сброс</button>`
         :paused?`<button class="main" data-act="t-start">дальше</button><button data-act="t-reset">сброс</button>`
         :`<button class="main" data-act="t-start">старт</button>`}${lg>0?`<button class="main" data-act="t-log" aria-label="Записать ${mmss(lg)}">записать</button>`:''}</div>
@@ -841,7 +841,7 @@ function restTick(){
     const left=restLeft(), el=document.getElementById('tval');
     if(el) el.textContent=mmss(Math.ceil(left));
     if(TOPEN && !tun) tunerDraw();
-    const h=document.querySelector('#tdock .thint'); if(h && left<=10 && h.textContent==='отдых') h.textContent='время истекает…';
+    const h=document.querySelector('#tdock .thint'); if(h && left<=10 && h.textContent.trim()==='') h.textContent='время истекает…';   /* v34: без «отдых»/«готово!» — пользователь */
     if(left<=0) restFinish();
   }
 }
