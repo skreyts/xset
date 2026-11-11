@@ -2039,7 +2039,18 @@ document.addEventListener('pointercancel', tRelease);
    насколько прокручено: листаешь вниз — выезжает вместе со страницей, листаешь назад — прячется. Отступ снизу у .page
    подобран так, что конец записи всегда на GAP выше таймера (ничего не перекрывает). Короткая страница добирается
    min-height до «экран + H», чтобы было что листать. Касание булавки — плавная прокрутка (открыть/закрыть). */
-const DOCK_GAP = 56, DOCK_PADC = 12;   /* 56: «Стереть запись» того же цвета — не должна читаться как кнопка таймера */
+const DOCK_GAP = 88, DOCK_PADC = 12;   /* 88: «Стереть запись» того же цвета — не должна читаться как кнопка таймера (что ближе, к тому и относится) */
+/* v32: «Стереть запись» — строкой записи, как «Записать упражнение» (слева, вплотную), а не по центру над таймером.
+   Булавка при выезде отскакивает от низа, как мячик (свойство translate — не мешает transform масштаба). */
+document.head.insertAdjacentHTML('beforeend',`<style>
+.foot-acts{margin-top:2px!important;padding-top:0!important}
+.foot-acts .link-danger{display:flex;align-items:center;gap:10px;justify-content:flex-start;text-align:left;width:auto;margin:0;padding:10px 0;font-size:17px}
+.foot-acts .btn+.link-danger{margin-top:8px}
+@keyframes tbounce{0%{translate:0 0}28%{translate:0 -16px}50%{translate:0 0}66%{translate:0 -6px}82%{translate:0 0}91%{translate:0 -2px}100%{translate:0 0}}
+.tdock .tval.hop{animation:tbounce .7s cubic-bezier(.33,0,.67,1)}
+</style>`);
+let tpPrev = 0;
+addEventListener('scroll', ()=>setTimeout(()=>{ if(tpPrev===0 && TP>0){ const v=document.querySelector('#tdock .tval'); if(v){ v.classList.remove('hop'); void v.offsetWidth; v.classList.add('hop'); } } tpPrev=TP; }), {passive:true});
 const dockSpare = ()=> Math.max(0, document.documentElement.scrollHeight - (scrollY + innerHeight));
 function dockLayout(){
   const el=document.getElementById('tdock'), pg=document.querySelector('.page');
