@@ -776,7 +776,8 @@ applyPers();
 const HI = {
   play:'<path d="M8.2 5.3C7.7 9.9 7.8 14.4 8.3 18.8C11.9 16.7 15.5 14.4 18.9 12.1C15.4 9.7 11.9 7.4 8.2 5.3Z"/>',
   pause:'<path d="M8.6 5.6C8.4 10 8.5 14.4 8.8 18.5M15.3 5.4C15.5 9.8 15.4 14.2 15.1 18.6"/>',
-  stop:'<path d="M6.6 6.9C10.2 6.4 13.8 6.5 17.3 7C17.7 10.5 17.6 13.9 17.2 17.3C13.6 17.8 10 17.7 6.7 17.2C6.3 13.7 6.3 10.3 6.6 6.9Z"/>',
+  /* v38: квадрат оптически мельче треугольника и пауз — увеличен на 10% */
+  stop:'<path d="M6.06 6.39C10.02 5.84 13.98 5.95 17.83 6.5C18.27 10.35 18.16 14.09 17.72 17.83C13.76 18.38 9.8 18.27 6.17 17.72C5.73 13.87 5.73 10.03 6.06 6.39Z"/>',
   again:'<path d="M18.6 12.6C18.4 16.3 15.4 19.1 11.8 19C8.2 18.9 5.3 15.9 5.4 12.2C5.5 8.6 8.5 5.7 12.1 5.8C13.8 5.8 15.3 6.5 16.4 7.6"/><path d="M16.9 3.9C16.8 5.2 16.7 6.5 16.6 7.8C15.3 7.8 14.1 7.9 12.8 8"/>',
   lap:'<path d="M7 20.6C6.8 14.6 6.9 8.6 7.2 3.9"/><path d="M7.2 4.7C10 3.5 12.4 5.9 15.2 4.8C16.3 4.4 17.3 4.2 18.4 4.5C18.2 7.2 18.2 9.7 18.5 12.1C15.6 11.5 13.2 13.5 10.4 12.7C9.3 12.4 8.2 12.4 7.2 12.8"/>',
   pen:'<path d="M5.1 19.3C5.4 17.9 5.8 16.4 6.1 15L16.2 4.9C17 4.1 18.2 4.1 19 4.9L19.3 5.2C20.1 6 20.1 7.2 19.3 8L9.2 18.1C7.8 18.6 6.5 18.9 5.1 19.3Z"/><path d="M14.5 6.8C15.5 7.8 16.4 8.7 17.4 9.7"/>'
@@ -1468,14 +1469,16 @@ function newSheet(date=newDate){
   /* v37: «Чистая страница» — отдельная заметная карточка; тренировки — в рамке своей программы (заголовок рамки = программа);
      недавнее кардио — мелкими чипами под чистой страницей, а не пунктами списка */
   const rc = recentCardio(date);
+  /* v38: в стиле дневника — бумага и чернила: дата рукописная (своё окно-календарь), «чистая страница» — листок, нарисованный
+     от руки, кардио — карандашные слова, тренировки программы — рукописные строки под чертой, «следующая» — красными чернилами */
   sheet(`${bar('Записать тренировку', L('close'))}
-    <div class="field"><label for="nw-date">Дата</label><input type="date" id="nw-date" value="${date}"></div>
+    <input type="hidden" id="nw-date" value="${date}">
+    <button class="dp-row" data-act="dp-open" data-for="nw"><span class="dp-l">Дата</span>${dpHand(date)}<span class="chev">${CHEV}</span></button>
     <button class="nw-blank" data-act="new-from" data-id="0"><span class="lead">${IC_BLANK}</span><span class="t"><b>Чистая страница</b><small>без программы — запишу по ходу</small></span></button>
-    ${rc.length?`<div class="nw-chips"><span>или сразу</span>${rc.map(n=>`<button class="chip" data-act="new-cardio" data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div>`:''}
-    ${p?`<div class="cap">Тренировка по программе</div>
-    <div class="nw-prog"><div class="nw-ph"><b>${esc(p.name)}</b><button data-act="prog-list">Сменить</button></div>
+    ${rc.length?`<div class="nw-chips"><span>или сразу:</span>${rc.map(n=>`<button class="chip" data-act="new-cardio" data-n="${esc(n)}">${esc(n.toLowerCase())}</button>`).join('')}</div>`:''}
+    ${p?`<div class="nw-prog"><div class="nw-ph"><span class="nw-pl">Тренировка по программе</span><b>${esc(p.name)}</b><button data-act="prog-list">Сменить</button></div>
       <div class="pick">${p.days.map((d,i)=>`<button data-act="new-day" data-i="${i}"><span class="pd"><span>${esc(d.name)}</span><small>${d.ex.map(esc).join(', ')}</small></span><small class="nx">${i===nextI?'следующая':''}</small></button>`).join('')}</div></div>`
-    :`<div class="cap">Тренировка по программе</div><div class="pick"><button data-act="prog-list"><span>Выбрать программу</span><span class="chev">${CHEV}</span></button></div>`}`);
+    :`<div class="nw-prog"><div class="nw-ph"><span class="nw-pl">Тренировка по программе</span></div><div class="pick"><button data-act="prog-list"><span class="pd"><span>Выбрать программу</span></span><span class="chev">${CHEV}</span></button></div></div>`}`);
 }
 function progListSheet(){
   sheet(`${bar('Программа', L('prog-back',`<span class="back">${CHEV}Назад</span>`), `<button class="bar-btn plus" data-act="prog-edit" data-id="" aria-label="Новая программа">${IC_PLUS}</button>`)}
@@ -1722,11 +1725,7 @@ document.addEventListener('click', ev=>{
       const p=prevFor(n,w), pe=p&&p.ex.find(x=>x.name===n);
       w.ex.push({name:n,sets:pe?planSets(pe.sets):[{r:10,w:0,done:false},{r:10,w:0,done:false},{r:10,w:0,done:false}]});
       close(); render(); break; }
-    case 'edit-w': sheet(`${bar('Тренировка', L('close'), R('ew-save'))}
-      <div class="field"><label for="ew-date">Дата</label><input type="date" id="ew-date" value="${w.date}"></div>
-      <div class="field"><label for="ew-title">Название</label><input type="text" id="ew-title" value="${esc(w.title)}"></div>
-      <div class="field"><label for="ew-note">Заметка дня</label><input type="text" id="ew-note" value="${esc(w.note||'')}" placeholder="например: болело плечо"></div>
-      <div class="field"><label>Маркер</label><div class="bandrow">${Object.keys(HL).map(k=>`<button class="chip ${kindOf(w)===k?'on':''}" data-act="ew-hl" data-k="${k}"><i class="sw" style="background:var(--hl-${k})"></i>${HL[k]}</button>`).join('')}</div></div>`); break;
+    case 'edit-w': ewSheet(w, {date:w.date, title:w.title, note:w.note||''}); break;
     case 'ew-hl': w.hl=b.dataset.k; document.querySelectorAll('[data-act="ew-hl"]').forEach(x=>x.classList.toggle('on',x===b)); break;
     case 'ew-save':w.date=document.getElementById('ew-date').value||w.date; w.title=document.getElementById('ew-title').value.trim()||w.title; w.note=document.getElementById('ew-note').value.trim(); close(); render(); break;
     case 'lib-add': { const n=st.libQuery.trim(); if(n){ archived.delete(n); hidden.delete(n);
@@ -1783,7 +1782,7 @@ document.addEventListener('keydown',e=>{
 
 /* ЭТАП 2: ХРАНЕНИЕ НА ТЕЛЕФОНЕ. Всё состояние — одним JSON в localStorage (ключ xset-data), пишется после каждого действия.
    Копия = тот же JSON файлом (Настройки → «Сохранить копию»), загрузка — оттуда же; принимает и data/history.json (массив тренировок). */
-const APP_VER = '1.15';
+const APP_VER = '1.16';
 const DB_KEY = 'xset-data';
 /* ЭТАП 3 (облако): для слияния телефонов у тренировки есть метка изменения upd, у стёртых — tomb[id]=когда стёрта,
    у настроек (программы, база, архив…) — общая метка setUpd. Метки ставит save() сам, сравнивая с прошлым видом (known). */
@@ -2321,55 +2320,74 @@ const fmtSW = s=>swParts(s).join('');
    Идущий отрезок считает своё время вниз (на своём крестике или в своём промежутке). */
 function tabRounds(p){
   const t=CLK.tab, n=t.rounds, cur=p&&!p.done?(p.seg.r||0):0, k=p&&!p.done?p.seg.k:'';
+  /* v38: без времени на крестиках — у каждого крупный номер раунда («отработал 5» видно без пересчёта).
+     Область постоянной высоты (2 ряда): больше раундов — листаются внутри, идущий раунд всегда на виду; ничего не уезжает и не обрезается */
   let h='';
   for(let i=1;i<=n;i++){
     const done=(p&&p.done)||(cur&&(i<cur||(i===cur&&k==='rest'))), now=cur===i&&k==='work';
-    h += `<span class="cr ${done?'d':now?'n':''}"><i>${CLK_X}</i><sup>${now?mmss(Math.ceil(p.left)):mmss(t.work)}</sup></span>`;
-    if(i<n && t.rest){ const rn=cur===i&&k==='rest', rd=(p&&p.done)||(cur&&(i<cur));
-      h += `<span class="crr ${rn?'n':rd?'d':''}">${rn?mmss(Math.ceil(p.left)):mmss(t.rest)}</span>`; }
+    h += `<span class="cr ${done?'d':now?'n':''}" data-r="${i}"><i>${CLK_X}</i><b>${i}</b></span>`;
   }
-  return `<div class="clk-rounds">${h}</div>`;
+  return `<div class="clk-rounds${n<=6?' one':''}"><div class="crw">${h}</div></div>`;
 }
-function clkFace(){
-  const m=CLK.mode; let big, lab='&nbsp;', extra='', cls='', btns='';
+/* рукописное кольцо-шкала вокруг цифр (таймер, секундомер): чуть неровная окружность, как от руки */
+const RING_R=90, RING_D=(()=>{ let d=''; const N=96; for(let i=0;i<=N;i++){ const a=-Math.PI/2+i/N*2*Math.PI, r=RING_R+Math.sin(i*.31+.6)*1.1+Math.sin(i*.83)*.5;
+  d+=(i?'L':'M')+(100+r*Math.cos(a)).toFixed(2)+' '+(100+r*Math.sin(a)).toFixed(2); } return d; })();
+const RING_T=(()=>{ let d=''; for(let i=0;i<12;i++){ const a=-Math.PI/2+i/12*2*Math.PI, r1=RING_R-7, r2=RING_R-(i%3?11:15);
+  d+=`M${(100+r1*Math.cos(a)).toFixed(1)} ${(100+r1*Math.sin(a)).toFixed(1)}L${(100+r2*Math.cos(a)).toFixed(1)} ${(100+r2*Math.sin(a)).toFixed(1)}`; } return d; })();
+const ringPt = f=>{ const a=-Math.PI/2+f*2*Math.PI; return [100+RING_R*Math.cos(a), 100+RING_R*Math.sin(a)]; };
+/* v38: состояние лица по частям — clkDraw обновляет только изменившееся (цифры «перекатываются», кольцо плавно, кнопки не мигают) */
+function clkState(){
+  const m=CLK.mode; let big, tail='', lab='&nbsp;', cls='', btns='', ring=null, laps=null, rounds='';
   if(m==='timer'){
     const go=restRun(), paused=!go&&REST.left>0, fin=!go&&!paused&&REST.done>0, lg=tLogged();
-    if(go){ const l=restLeft(); big=DIG(mmss(Math.ceil(l))); cls='work'; lab=l<=10?'время истекает…':'&nbsp;'; }
-    else if(paused){ big=DIG(mmss(Math.ceil(REST.left))); lab='пауза'; }
-    else if(fin){ big=DIG('0:00'); lab='время вышло'; cls='fin'; }
-    else { big=DIG(mmss(REST.pick)); lab='выбери время'; }
+    if(go){ const l=restLeft(); big=mmss(Math.ceil(l)); cls='work'; lab=l<=10?'время истекает…':'&nbsp;'; ring={f:REST.dur?l/REST.dur:1, on:1}; }
+    else if(paused){ big=mmss(Math.ceil(REST.left)); lab='пауза'; cls='paused'; ring={f:REST.dur?REST.left/REST.dur:1, on:1}; }
+    else if(fin){ big='0:00'; lab='время вышло'; cls='fin'; ring={f:0, on:1}; }
+    else { big=mmss(REST.pick); lab='&nbsp;'; ring={f:1, on:0}; }
     btns = go ? HB('t-pause','pause','Пауза',1)+HB('t-reset','stop','Сброс')
       : paused ? HB('t-start','play','Дальше',1)+HB('t-reset','stop','Сброс')+(lg>=1?HB('clk-log','pen','Записать'):'')
       : fin ? HB('t-start','again','Заново',1)+HB('clk-log','pen','Записать')
       : HB('t-start','play','Старт',1);
   } else if(m==='tabata'){
     const r=run('tabata'), paused=r&&r.pausedAt, p=r?clkPos():null;
-    if(!r){ big=DIG(mmss(tabPlan().reduce((a,s)=>a+s.d,0))); lab=`${CLK.tab.rounds} ${plural(CLK.tab.rounds,'раунд','раунда','раундов')}`; }
-    else if(p.done){ big=DIG('0:00'); lab='тренировка закончена'; cls='fin'; }
-    else { big=DIG(mmss(Math.ceil(p.left))); cls=p.seg.k;
-      lab = paused ? 'пауза' : PH_NAME[p.seg.k]+(p.seg.r?`, раунд ${p.seg.r} из ${CLK.tab.rounds}`:''); }
-    extra = tabRounds(p);
+    if(!r){ big=mmss(tabPlan().reduce((a,s)=>a+s.d,0)); lab=`${CLK.tab.rounds} ${plural(CLK.tab.rounds,'раунд','раунда','раундов')}`; }
+    else if(p.done){ big='0:00'; lab='тренировка закончена'; cls='fin'; }
+    else { big=mmss(Math.ceil(p.left)); cls='ph-'+p.seg.k+(paused?' paused':'');  /* не 'rest': так называется плашка таймера отдыха (position:fixed) — табата превращалась в карточку внизу */
+      lab = paused ? 'пауза' : p.seg.k==='prep' ? 'приготовься' : p.seg.k==='rest' ? `отдых, дальше раунд ${p.seg.r+1}` : `работа, раунд ${p.seg.r} из ${CLK.tab.rounds}`; }
+    rounds = tabRounds(p);
     const done=r&&p.done, canLog=r&&(paused||done)&&clkRoundsDone()>0;
     btns = !r ? HB('clk-start','play','Старт',1)
       : done ? HB('clk-start','again','Заново',1)+HB('clk-log','pen','Записать')
       : !paused ? HB('clk-pause','pause','Пауза',1)+HB('clk-reset','stop','Сброс')
       : HB('clk-go','play','Дальше',1)+HB('clk-reset','stop','Сброс')+(canLog?HB('clk-log','pen','Записать'):'');
   } else {
-    const r=run('sw'), paused=r&&r.pausedAt, [a,t]=swParts(clkEl('sw'));
-    big=DIG(a, DIG(t)); if(paused) lab='пауза';
+    const r=run('sw'), paused=r&&r.pausedAt, e=clkEl('sw'), [a,t]=swParts(e);
+    big=a; tail=t; if(paused){ lab='пауза'; cls='paused'; } else if(r) cls='work';
+    ring={f:(e%60)/60, on:r?1:0, sw:1}; let acc=0; laps=CLK.laps.map(l=>(acc+=l, (acc%60)/60));
     btns = !r ? HB('clk-start','play','Старт',1)
       : !paused ? HB('clk-lap','lap','Круг')+HB('clk-pause','pause','Пауза',1)
-      : HB('clk-go','play','Дальше',1)+HB('clk-reset','stop','Сброс')+(clkEl('sw')>=1?HB('clk-log','pen','Записать'):'');
+      : HB('clk-go','play','Дальше',1)+HB('clk-reset','stop','Сброс')+(e>=1?HB('clk-log','pen','Записать'):'');
   }
-  return `<div class="clk-face ${cls}"><div class="clk-lab">${lab}</div><div class="clk-big">${big}</div>${extra}</div><div class="clk-btns">${btns}</div>`;
+  return {m, big, tail, lab, cls, btns, ring, laps, rounds};
 }
+function ringSVG(){ return `<svg class="ring" viewBox="0 0 200 200" aria-hidden="true"><path class="rt" d="${RING_T}"/><path class="rb" d="${RING_D}" pathLength="100"/><path class="rp" d="${RING_D}" pathLength="100"/><g class="rl"></g><circle class="rd" r="4.2" cx="100" cy="10"/></svg>`; }
+function clkFace(){
+  const s=clkState(), ringed=!!s.ring;
+  return `<div class="clk-face ${s.cls} ${ringed?'ringed':''}">${ringed?ringSVG():''}<div class="clk-mid"><div class="clk-lab">${s.lab}</div><div class="clk-big">${DIG(s.big, s.tail?DIG(s.tail):'')}</div></div>${s.rounds}</div><div class="clk-btns ${ringed?'xl':''}">${s.btns}</div>`;
+}
+/* v38: числа вводятся и с клавиатуры (поле между − и +). Время — «справа налево», как в таймере iPhone: 1 3 0 → 1:30 */
+const tDig = s=>String(s).replace(/\D/g,'').replace(/^0+/,'').slice(-4);
+const tFmt = d=>{ d=String(d).padStart(3,'0'); return `${+d.slice(0,-2)}:${d.slice(-2)}`; };
+const tSecOf = d=>{ d=String(d).padStart(3,'0'); return (+d.slice(0,-2))*60 + (+d.slice(-2)); };
+const CLK_PRE=[30,60,90,120,180,300,600];
 function clkSettings(){
-  const row=(k,n,txt)=>`<div class="clk-row"><span>${n}</span><span class="clk-stp"><button data-act="clk-st" data-k="${k}" data-d="-1" aria-label="Меньше">${IC_MINUS}</button><b>${txt}</b><button data-act="clk-st" data-k="${k}" data-d="1" aria-label="Больше">${IC_PLUS}</button></span></div>`;
+  const row=(k,n,val,isT)=>`<div class="clk-row"><span>${n}</span><span class="clk-stp"><button data-act="clk-st" data-k="${k}" data-d="-1" aria-label="Меньше">${IC_MINUS}</button><input class="clk-in" data-k="${k}" data-t="${isT?1:0}" inputmode="numeric" enterkeyhint="done" autocomplete="off" value="${val}"><button data-act="clk-st" data-k="${k}" data-d="1" aria-label="Больше">${IC_PLUS}</button></span></div>`;
   if(CLK.mode==='tabata'){ if(run('tabata')) return ''; const t=CLK.tab;
-    return `<div class="group clk-set">${row('work','Работа',mmss(t.work))}${row('rest','Отдых',mmss(t.rest))}${row('rounds','Раунды',t.rounds)}${row('prep','Подготовка',mmss(t.prep))}</div>`; }
+    return `<div class="group clk-set">${row('work','Работа',mmss(t.work),1)}${row('rest','Отдых',mmss(t.rest),1)}${row('rounds','Раунды',t.rounds,0)}${row('prep','Подготовка',mmss(t.prep),1)}</div>`; }
   if(CLK.mode==='timer'){ if(restRun()||REST.left>0) return '';
-    return `<div class="clk-chips">${[30,60,90,120,180,300,600].map(s=>`<button class="${REST.pick===s?'on':''}" data-act="clk-pick" data-s="${s}">${mmss(s)}</button>`).join('')}</div>
-      <div class="group clk-set">${row('tim','Своё время',mmss(REST.pick))}</div>`; }
+    /* предустановки — рукописными цифрами на бумаге; выбранная обведена маркером (как «сегодня» в календаре) */
+    return `<div class="clk-pre">${CLK_PRE.map(s=>`<button class="${REST.pick===s?'on':''}" data-act="clk-pick" data-s="${s}">${mmss(s)}</button>`).join('')}</div>
+      <div class="group clk-set">${row('tim','Своё время',mmss(REST.pick),1)}</div>`; }
   return CLK.laps.length ? `<div class="cap">Круги</div><div class="group clk-set">${CLK.laps.map((l,i)=>`<div class="clk-row"><span>Круг ${i+1}</span><b class="clk-lapv">${fmtSW(l)}</b></div>`).reverse().join('')}</div>` : '';
 }
 function renderClock(){
@@ -2378,11 +2396,71 @@ function renderClock(){
   const m=CLK.mode;
   $main.innerHTML = `<div class="titlebar"><h1>Таймер</h1></div>
     <div class="seg" style="margin:6px 0 4px">${[['timer','Таймер'],['tabata','Табата'],['sw','Секундомер']].map(([k,n])=>`<button class="${m===k?'on':''}" data-act="clk-mode" data-m="${k}">${n}</button>`).join('')}</div>
-    <div class="clk" id="clk">${clkFace()}</div><div id="clk-set">${clkSettings()}</div>`;
+    <div class="clk clk-${m}" id="clk">${clkFace()}</div><div id="clk-set">${clkSettings()}</div><div class="clk-kbpad"></div>`;
+  clkDraw(true);
 }
 const STEP={work:[5,5,3600], rest:[5,0,3600], prep:[5,0,120], rounds:[1,1,99], tim:[15,T_MIN,T_MAX]};
-function clkDraw(){ const el=document.getElementById('clk'); if(!el) return; const h=clkFace(); if(el._h!==h){ el.innerHTML=h; el._h=h; }
-  const s=document.getElementById('clk-set'); if(s){ const hs=clkSettings(); if(s._h!==hs){ s.innerHTML=hs; s._h=hs; } } }
+/* цифры: меняется только изменившаяся ячейка — новая цифра «накатывает» сверху (десятые секундомера — без анимации, слишком часто) */
+function bigSet(el, s, tail){
+  const want=[...s].map(ch=>/\d/.test(ch)?'dg':'sp');
+  let main=el.querySelectorAll(':scope > i'), tl=el.querySelector('.tail');
+  if(main.length!==want.length || [...main].some((c,i)=>!c.classList.contains(want[i])) || !!tl!==!!tail){ el.innerHTML=DIG(s, tail?DIG(tail):''); return; }
+  [...s].forEach((ch,i)=>{ const c=main[i]; if(c.textContent!==ch){ c.textContent=ch; if(!RM() && want[i]==='dg') c.animate([{transform:'translateY(-.22em)',opacity:.15},{transform:'none',opacity:1}], {duration:190, easing:'cubic-bezier(.2,.85,.25,1)'}); } });
+  if(tail){ const ti=tl.querySelectorAll('i'); if(ti.length!==tail.length) tl.innerHTML=DIG(tail); else [...tail].forEach((ch,i)=>{ if(ti[i].textContent!==ch) ti[i].textContent=ch; }); }
+}
+function clkDraw(force){
+  const el=document.getElementById('clk'); if(!el) return; const s=clkState();
+  const face=el.querySelector('.clk-face');
+  if(!face || el._m!==s.m || !!s.ring!==face.classList.contains('ringed')){ el.className=`clk clk-${s.m}`; el.innerHTML=clkFace(); el._m=s.m; el._b=s.btns; el._r=s.rounds; el._l=s.lab; }
+  else {
+    const fc=`clk-face ${s.cls} ${s.ring?'ringed':''}`; if(face.className!==fc) face.className=fc;
+    if(el._l!==s.lab){ const l=face.querySelector('.clk-lab'); l.innerHTML=s.lab; el._l=s.lab; if(!RM()) l.animate([{opacity:0, transform:'translateY(6px)'},{opacity:1, transform:'none'}], {duration:260, easing:'ease-out'}); }
+    bigSet(face.querySelector('.clk-big'), s.big, s.tail);
+    if(el._r!==s.rounds){ const o=face.querySelector('.clk-rounds'), sc=o&&o.scrollTop; if(o) o.outerHTML=s.rounds; else face.insertAdjacentHTML('beforeend', s.rounds); const n=face.querySelector('.clk-rounds'); if(n&&sc) n.scrollTop=sc; el._r=s.rounds; roundsScroll(); }
+    if(el._b!==s.btns){ el.querySelector('.clk-btns').innerHTML=s.btns; el._b=s.btns; }
+  }
+  if(s.ring) ringSet(el, s);
+  if(force) roundsScroll(true);
+  const st0=document.getElementById('clk-set');
+  if(st0 && !st0.contains(document.activeElement)){ const hs=clkSettings(); if(st0._h!==hs){ st0.innerHTML=hs; st0._h=hs; } }
+}
+function ringSet(el, s){
+  const svg=el.querySelector('svg.ring'); if(!svg) return; const f=Math.max(0,Math.min(1,s.ring.f));
+  const rp=svg.querySelector('.rp'), rd=svg.querySelector('.rd');
+  rp.style.strokeDasharray=`${(f*100).toFixed(2)} 100`; rp.style.opacity=s.ring.on?'':'0';
+  const [x,y]=ringPt(f); rd.setAttribute('cx',x.toFixed(2)); rd.setAttribute('cy',y.toFixed(2)); rd.style.opacity=s.ring.on&&f>0?'':'0';
+  const k=(s.laps||[]).join(',');
+  if(svg._k!==k){ svg._k=k; svg.querySelector('.rl').innerHTML=(s.laps||[]).map(q=>{ const a=-Math.PI/2+q*2*Math.PI, r1=RING_R-8, r2=RING_R+8;
+    return `<path d="M${(100+r1*Math.cos(a)).toFixed(1)} ${(100+r1*Math.sin(a)).toFixed(1)}L${(100+r2*Math.cos(a)).toFixed(1)} ${(100+r2*Math.sin(a)).toFixed(1)}"/>`; }).join(''); }
+}
+/* идущий раунд всегда в видимой части области крестиков */
+function roundsScroll(now){ const o=document.querySelector('#clk .clk-rounds'); if(!o) return; const c=o.querySelector('.cr.n')||[...o.querySelectorAll('.cr.d')].pop(); if(!c) return;
+  /* ровно два ЦЕЛЫХ ряда: предыдущий (сделанные) и текущий — ничего не видно обрезанным */
+  const y=c.getBoundingClientRect().top-o.getBoundingClientRect().top+o.scrollTop-6, rowH=c.offsetHeight+8;
+  o.scrollTo({top:Math.max(0, Math.round(y-rowH)), behavior:now?'auto':'smooth'}); }
+/* кольцо и секундомер — плавно каждый кадр, пока вкладка на экране */
+(function clkFrame(){ if(st.screen==='clock' && document.visibilityState==='visible'){ const m=CLK.mode; if(m==='sw'||(m==='timer'&&restRun())) clkDraw(); } requestAnimationFrame(clkFrame); })();
+/* смена режима (сегмент или свайп): новый режим въезжает с той стороны, куда листаешь */
+function clkSwitch(m, dir){
+  if(m===CLK.mode) return; const ms=['timer','tabata','sw']; if(!dir) dir=ms.indexOf(m)>ms.indexOf(CLK.mode)?1:-1;
+  const a=document.activeElement; if(a&&a.blur) a.blur();
+  CLK.mode=m; clkSave(); render();
+  if(RM()) return; const kf=[{transform:`translateX(${dir*18}%)`, opacity:0},{transform:'none', opacity:1}], op={duration:260, easing:'cubic-bezier(.2,.85,.25,1)'};
+  ['clk','clk-set'].forEach(id=>{ const e=document.getElementById(id); if(e) e.animate(kf, op); });
+}
+function clkCommit(inp){
+  const k=inp.dataset.k, [, mn, mx]=STEP[k]; let v;
+  if(inp.dataset.t==='1'){ const d=tDig(inp.value); v=d?tSecOf(d):mn; } else v=parseInt(inp.value.replace(/\D/g,''),10)||mn;
+  v=Math.max(mn, Math.min(mx, v));
+  if(k==='tim'){ REST.pick=v; REST.done=0; restSave(); } else CLK.tab[k]=v;
+  clkSave(); clkNative(); inp.value = inp.dataset.t==='1' ? mmss(v) : v;
+}
+document.addEventListener('input', ev=>{ const t=ev.target; if(!t.classList || !t.classList.contains('clk-in')) return;
+  if(t.dataset.t==='1'){ const d=tDig(t.value); t.value=d?tFmt(d):''; } else t.value=t.value.replace(/\D/g,'').slice(0,2);
+  try{ const n=t.value.length; t.setSelectionRange(n,n); }catch(e){} });
+document.addEventListener('focusin', ev=>{ const t=ev.target; if(t.classList && t.classList.contains('clk-in')) setTimeout(()=>{ try{ const n=t.value.length; t.setSelectionRange(n,n); }catch(e){} },0); });
+document.addEventListener('focusout', ev=>{ const t=ev.target; if(t.classList && t.classList.contains('clk-in')){ clkCommit(t); setTimeout(()=>{ if(st.screen==='clock') clkDraw(); }, 0); } });
+document.addEventListener('keydown', ev=>{ if(ev.key==='Enter' && ev.target.classList && ev.target.classList.contains('clk-in')) ev.target.blur(); });
 function clkNative(){ if(!NATIVE) return; const C=window.Capacitor, T=(C.Plugins&&C.Plugins.XsetTimer)||C.registerPlugin('XsetTimer'); if(!T) return;
   const r=run('tabata'); if(!r||r.pausedAt||document.visibilityState==='visible'){ T.stop({group:'clk'}).catch(()=>{}); return; }
   const now=Date.now(), base=r.start+(r.acc||0); let acc=0; const ph=[];
@@ -2408,7 +2486,7 @@ function clkBeep(n, long){ if(document.visibilityState!=='visible') return; try{
 function clkAct(a, b){
   try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); actx.resume&&actx.resume(); }catch(e){}
   const m=CLK.mode, r=run(m), now=Date.now();
-  if(a==='clk-mode'){ CLK.mode=b.dataset.m; }
+  if(a==='clk-mode'){ clkSwitch(b.dataset.m); return; }
   if(a==='clk-start' && m!=='timer'){ CLK.runs[m]={start:now, acc:0, pausedAt:0, plan:m==='tabata'?tabPlan():null}; if(m==='sw') CLK.laps=[]; if(m==='tabata') clkLast={i:-1,s:-1}; try{navigator.vibrate&&navigator.vibrate(12)}catch(e){} }
   if(a==='clk-pause' && r){ r.pausedAt=now; }
   if(a==='clk-go' && r){ r.acc=(r.acc||0)+(now-r.pausedAt); r.pausedAt=0; }
@@ -2519,7 +2597,7 @@ document.addEventListener('contextmenu',ev=>{ if(ev.target.closest('.set')) ev.p
 /* свайп от левого края вправо = назад (iPhone; на Android это делает система) */
 let edge=null;
 const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
-document.addEventListener('touchstart',ev=>{ if(!IOS) return; const x=ev.touches[0].clientX, r=document.body.getBoundingClientRect();
+document.addEventListener('touchstart',ev=>{ return; /* v38: заменено общим жестом «назад» (блок v38) */ const x=ev.touches[0].clientX, r=document.body.getBoundingClientRect();
   edge=(x-r.left<24 && !$layer.innerHTML.trim())?{x0:x,y0:ev.touches[0].clientY}:null; },{passive:true});
 document.addEventListener('touchend',ev=>{ if(!edge) return; const t=ev.changedTouches[0], dx=t.clientX-edge.x0, dy=Math.abs(t.clientY-edge.y0); edge=null;
   if(dx>70 && dy<60) goBack(); });
@@ -2578,9 +2656,15 @@ const blurLayer = ()=>{ const a=document.activeElement; if(a && $layer.contains(
     s0(html);
     const sh = $layer.querySelector('.shade:not(.ghost) .sheet'); if(!old || !sh || RM()) return;
     const nh = sh.getBoundingClientRect().height; if(Math.abs(nh-oh) < 2) return;
-    sh.style.overflow = 'hidden';
-    const an = sh.animate([{height:oh+'px'},{height:nh+'px'}], {duration:300, easing:'cubic-bezier(.2,.85,.25,1)'});
-    an.onfinish = an.oncancel = ()=>{ sh.style.overflow=''; };
+    /* v38: не анимировать height (перекладка всего окна на каждом кадре = лаги). Выше стало — край открывается clip-path;
+       ниже стало — над окном «фартук» той же бумаги, он съезжает трансформом (всё на видеокарте) */
+    const E={duration:280, easing:'cubic-bezier(.2,.85,.25,1)'};
+    if(nh>oh){ sh.animate([{clipPath:`inset(${Math.round(nh-oh)}px 0 0 0 round 20px 20px 0 0)`},{clipPath:'inset(0px 0 0 0 round 20px 20px 0 0)'}], E); }
+    else { const ap=document.createElement('div'); ap.className='sheet-apron';
+      ap.style.cssText=`left:${sh.offsetLeft}px;width:${sh.offsetWidth}px;height:${Math.round(oh)}px`;
+      sh.parentNode.insertBefore(ap, sh);
+      const an=ap.animate([{transform:'translateY(0)'},{transform:`translateY(${Math.round(oh-nh)}px)`}], E);
+      an.onfinish=an.oncancel=()=>ap.remove(); setTimeout(()=>ap.remove(), 600); }
   }; }
 document.head.insertAdjacentHTML('beforeend',`<style>
 .sheet .pick button.pick-new{justify-content:flex-start!important;gap:12px;color:var(--tint)}
@@ -2614,6 +2698,284 @@ input.pg-dn{width:100%;box-sizing:border-box}
 .pick .chev svg{width:14px;height:14px;fill:none;stroke:var(--muted);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 </style>`);
 const IC_BLANK = '<svg viewBox="0 0 24 24"><path d="M6 3.5h8.5L19 8v12.5H6z"/><path d="M14.5 3.5V8H19"/></svg>';
+
+/* ===== v38 (второй отзыв 12.11): клавиатура и окна одним движением, жесты, булавка ===== */
+document.head.insertAdjacentHTML('beforeend',`<style>
+/* клавиатура: MainActivity на старте анимации шлёт КОНЕЧНУЮ высоту и длительность → один переход с кривой клавиатуры Android */
+/* ...и едет ТРАНСФОРМОМ (на видеокарте: не ждёт основной поток, без пропусков кадров). Низ подложки при этом уходит
+   под клавиатуру — его не видно. Высокое окно, которому не хватит места, — по-старому через bottom (.kb-lay) */
+:root.native .shade{bottom:0;transform:translateY(calc(-1 * max(0px, var(--kb,0px) - env(safe-area-inset-bottom,0px))));transition:transform var(--kbd,260ms) cubic-bezier(.2,0,0,1)}
+:root.native .shade.ghost{transition:background-color .25s ease-out,transform var(--kbd,260ms) cubic-bezier(.2,0,0,1)}
+:root.native .shade.kb-lay{transform:none;bottom:max(0px,calc(var(--kb,0px) - env(safe-area-inset-bottom,0px)));transition:bottom var(--kbd,260ms) cubic-bezier(.2,0,0,1)}
+:root.native .shade.kb-lay.ghost{transition:background-color .25s ease-out,bottom var(--kbd,260ms) cubic-bezier(.2,0,0,1)}
+:root:not(.native) .shade.ghost{transition:background-color .25s ease-out,bottom .26s cubic-bezier(.2,.85,.25,1)}
+.shade.ghost .sheet{transition:transform .26s cubic-bezier(.32,.1,.3,1)}
+.sheet{position:relative;z-index:1}
+.sheet-apron{position:absolute;bottom:0;z-index:0;background-color:var(--paper);background-image:var(--grain);background-size:108px 108px;border-radius:20px 20px 0 0;pointer-events:none}
+/* перетяг страницы снизу — под ней та же бумага с зерном, а не гладкая полоса */
+html{background-image:var(--grain);background-size:108px 108px}
+/* заметка дня: каретка на одной линии с подсказкой */
+.daynote.ed{line-height:1.3}
+.daynote.ed:empty::before{display:inline}
+/* булавка: 3 пульса только при входе в тренировку (и когда время вышло — один раз), не при каждой перерисовке */
+.tdock.fin .tval{animation:none}
+/* ВКЛАДКА «ТАЙМЕР» v38 */
+.clk{margin:12px 0 4px}
+.clk-face.ringed{position:relative;width:min(80vw,310px,40vh);aspect-ratio:1;margin:0 auto;justify-content:center}
+.clk-face.ringed svg.ring{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.ring path,.ring circle{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.ring .rb{stroke:var(--ink-soft);stroke-width:2;opacity:.6;filter:url(#ink)}
+.ring .rt{stroke:var(--ink-soft);stroke-width:1.7;opacity:.55}
+.ring .rp{stroke:var(--tim);stroke-width:4;filter:url(#ink);transition:opacity .3s}
+.ring .rd{fill:var(--tim);stroke:none;transition:opacity .3s}
+.ring .rl path{stroke:var(--ink);stroke-width:2.4}
+.clk-sw .ring .rp{stroke:var(--ink)} .clk-sw .ring .rd{fill:var(--ink)}
+.clk-face.paused .ring .rp,.clk-face.paused .ring .rd{opacity:.4}
+.clk-mid{position:relative;display:flex;flex-direction:column;align-items:center}
+.clk-face.ringed .clk-big{font-size:min(84px,21vw);margin:0 0 14px}
+.clk-sw .clk-face.ringed .clk-big{font-size:min(62px,15.5vw)}
+.clk-face.ringed .clk-lab{margin-top:6px}
+.clk-big{filter:url(#inkL)!important;transition:color .35s,opacity .35s}
+.clk-big .tail{filter:url(#ink)}
+.clk-lab{transition:color .35s}
+.clk-sw .clk-face.work .clk-big{color:var(--ink)}
+/* фазы табаты: подготовка — карандаш, работа — красные чернила, отдых — синие; смена цвета плавная */
+.clk-face.ph-prep .clk-big,.clk-face.ph-prep .clk-lab{color:var(--muted)}
+.clk-face.ph-rest .clk-big,.clk-face.ph-rest .clk-lab{color:var(--ink)}
+.clk-face.ph-work .clk-big,.clk-face.ph-work .clk-lab{color:var(--tim)}
+.clk-face.paused .clk-big{opacity:.7}
+.clk-rounds{display:block;height:132px;max-width:none;width:100%;margin:10px auto 0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;
+  -webkit-mask:linear-gradient(transparent,#000 6px,#000 calc(100% - 6px),transparent);mask:linear-gradient(transparent,#000 6px,#000 calc(100% - 6px),transparent)}
+.clk-rounds::-webkit-scrollbar{display:none}
+.clk-rounds .crw{display:flex;flex-wrap:wrap;justify-content:center;align-content:flex-start;gap:8px 6px;padding:6px 0;max-width:372px;margin:0 auto;box-sizing:border-box}
+.clk-rounds.one .crw{min-height:100%;align-content:center}
+.clk-rounds .cr{position:relative;width:58px;height:56px;padding:0;display:block;flex:none}
+.clk-rounds .cr i{width:48px;height:48px;display:block}
+.clk-rounds .cr b{position:absolute;right:0;bottom:-1px;font-family:var(--hand);font-weight:700!important;font-size-adjust:var(--fsa);font-size:21px;line-height:1;color:var(--muted);opacity:.8;filter:url(#ink)}
+.clk-rounds .cr.d b{color:var(--ink);opacity:1}
+.clk-rounds .cr.n b{color:var(--tim);opacity:1}
+.clk-rounds .cr svg{transition:stroke .3s}
+/* крупные значки в Таймере и Секундомере (экран пустой — главное действие крупно) */
+.clk-btns.xl{gap:46px;margin:18px 0 4px;min-height:96px}
+.clk-btns.xl .hb{width:70px;height:70px}
+.clk-btns.xl .hb svg{width:42px;height:42px}
+.clk-btns.xl .hb.main{width:96px;height:96px}
+.clk-btns.xl .hb.main svg{width:62px;height:62px;stroke-width:2}
+/* предустановки таймера — рукописными цифрами на бумаге, выбранная обведена */
+.clk-pre{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 4px;margin:8px 0 0}
+.clk-pre button{position:relative;font-family:var(--hand);font-weight:var(--hand-w)!important;font-size-adjust:var(--fsa);font-size:23px;color:var(--ink-soft);padding:6px 10px;min-height:46px;filter:url(#ink)}
+.clk-pre button.on{color:var(--ink)}
+.clk-pre button.on::after{content:'';position:absolute;inset:3px 0;border:2px solid var(--tim);border-radius:52% 46% 54% 44%/56% 50% 48% 52%;transform:rotate(-5deg)}
+.clk-pre button:active{opacity:.6}
+.clk-stp input.clk-in{width:70px;box-sizing:border-box;text-align:center;font-family:var(--ui);font-size:17px;font-weight:500;font-variant-numeric:tabular-nums;background:transparent;border:0;border-radius:8px;color:var(--label);padding:8px 0;outline:none;caret-color:var(--tint)}
+.clk-stp input.clk-in:focus{background:var(--fill)}
+.clk-kbpad{height:var(--kb,0px)}
+#safe-probe{position:fixed;left:0;bottom:0;width:0;height:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none}
+</style>`);
+document.body.insertAdjacentHTML('beforeend','<div id="safe-probe"></div>');
+/* зерно чернил для КРУПНЫХ цифр — крупнее (мелкое #ink на 90 px выглядело пылью) */
+{ const df=document.querySelector('svg.xdefs defs'); if(df) df.insertAdjacentHTML('afterbegin',`<filter id="inkL" x="-3%" y="-6%" width="106%" height="112%" color-interpolation-filters="sRGB">
+  <feTurbulence type="fractalNoise" baseFrequency="0.24" numOctaves="2" seed="7" result="n"/>
+  <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6" xChannelSelector="R" yChannelSelector="G" result="d"/>
+  <feColorMatrix in="n" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1.2 1.55" result="a"/>
+  <feComposite in="d" in2="a" operator="in"/></filter>`); }
+const safeB = ()=>{ const p=document.getElementById('safe-probe'); return p?p.offsetHeight:0; };
+/* держим поле ввода над клавиатурой: где оно окажется в КОНЦЕ движения — считаем сразу и докручиваем плавно, одновременно с клавиатурой */
+function kbFollow(px, ms){
+  const a=document.activeElement; if(!px || !a || a===document.body) return;
+  const r=a.getBoundingClientRect();
+  if($layer.contains(a)){
+    const sh=a.closest('.sheet'); if(!sh) return;
+    const s=sh.getBoundingClientRect(), endB=innerHeight-Math.max(0, px-safeB()), dB=s.bottom-endB;
+    const endTop=Math.max(s.top-dB, endB-(innerHeight-Math.max(0,px-safeB()))*.88);
+    const fieldB=r.bottom-(s.top-endTop), lim=endB-14-safeB();
+    if(fieldB>lim) sh.scrollBy({top:fieldB-lim, behavior:'smooth'});
+  } else { const lim=innerHeight-px-16; if(r.bottom>lim) scrollBy({top:r.bottom-lim, behavior:'smooth'}); }
+}
+let KB=0;
+window.__kbAnim = (px, ms)=>{ px=Math.max(0,px|0); const R=document.documentElement;
+  const D=Math.max(120, Math.min(420, ms|0 || 260)); R.style.setProperty('--kbd', D+'ms');
+  if(px){ $layer.querySelectorAll('.shade').forEach(sd=>{ const sh=sd.querySelector('.sheet'); if(!sh) return;
+      const lay = sh.offsetHeight + px - safeB() > innerHeight*.88; if(lay!==sd.classList.contains('kb-lay')){ sd.style.transition='none'; sd.classList.toggle('kb-lay', lay); void sd.offsetWidth; sd.style.transition=''; } });
+    kbFollow(px, ms); }
+  R.style.setProperty('--kb', px+'px'); KB=px; };
+{ const k0 = window.__kb; window.__kb = px=>{ KB=Math.max(0,px|0); document.documentElement.style.setProperty('--kb', KB+'px'); }; }
+/* ввод на СТРАНИЦЕ (заметка) → открывается окно: убрать фокус, и окно сразу встаёт у низа экрана (клавиатура уходит под ним), без подскока */
+{ const s1 = sheet;
+  sheet = function(html){
+    const fresh=!$layer.querySelector('.shade:not(.ghost)'), a=document.activeElement;
+    if(fresh && a && a!==document.body && !$layer.contains(a)){
+      a.blur(); const R=document.documentElement, sv=getComputedStyle(R).getPropertyValue('--kbd');
+      R.style.setProperty('--kbd','0ms'); R.style.setProperty('--kb','0px'); KB=0;
+      requestAnimationFrame(()=>R.style.setProperty('--kbd', sv||'260ms'));
+    }
+    s1(html);
+  }; }
+/* смахнуть окно = ОДНО движение от места, где его отпустил палец (раньше: доезд .22s + через 200 мс второе закрытие) */
+dismissSheet = function(){
+  const sd=$layer.querySelector('.shade:not(.ghost)'), sh=sd&&sd.querySelector('.sheet');
+  blurLayer();
+  if(!sh){ close(); return; }
+  const m=/translateY\(([\d.]+)px\)/.exec(sh.style.transform||''), dy=m?+m[1]:0;
+  if(dy) sh.style.transition='transform .24s cubic-bezier(.2,.7,.3,1)'; else sh.style.transition='';
+  const lb=sd.querySelector('.sheet-bar .bar-btn.l');
+  if(lb) lb.click(); else close();
+  /* вложенное окно вернулось к предыдущему (подмена) — оно «поднимается» с той высоты, где отпустили */
+  const nw=$layer.querySelector('.shade:not(.ghost) .sheet');
+  if(nw && nw!==sh && dy && !RM()) nw.animate([{transform:`translateY(${dy}px)`},{transform:'none'}], {duration:260, easing:'cubic-bezier(.2,.85,.25,1)'});
+  else if(nw===sh){ sh.style.transform=''; }
+};
+/* ===== булавка таймера: пульс при входе, отскок от краёв ===== */
+function dockPulse(){ const v=document.querySelector('#tdock .tval'); if(!v || RM()) return;
+  v.animate([{scale:'1'},{scale:'1.12'},{scale:'1'}], {duration:560, iterations:3, easing:'ease-in-out'}); }
+function dockHop(){ const v=document.querySelector('#tdock .tval'); if(!v) return; v.classList.remove('hop'); void v.offsetWidth; v.classList.add('hop'); }
+let pulseK='', lastFin=false;
+const finNow = ()=>{ const d=document.getElementById('tdock'); return !!(d && d.classList.contains('fin')); };
+{ const r3 = render; render = function(){ r3.apply(this, arguments);
+    const k=navPos().k, w=st.screen==='workout';
+    if(w && k!==pulseK) setTimeout(dockPulse, 340);   /* после въезда страницы */
+    pulseK = w ? k : ''; lastFin = finNow(); }; }
+{ const rr = restRefresh; restRefresh = function(){ rr.apply(this, arguments); const f=finNow(); if(f && !lastFin) dockPulse(); lastFin=f; }; }
+/* отскок: упёрся в верх или низ страницы (бросок или перетяг пальцем) — булавка подскакивает */
+let hopY=scrollY, hopSp=1, hopT=0;
+const hopOnce = ()=>{ const n=Date.now(); if(n-hopT<450) return; hopT=n; dockHop(); };
+addEventListener('scroll', ()=>{ if(!document.getElementById('tdock')) return; const y=scrollY, sp=dockSpare();
+  if(y<=0 && hopY>0) hopOnce(); if(sp<=1 && hopSp>1) hopOnce(); hopY=y; hopSp=sp; }, {passive:true});
+let ovs=null;
+document.addEventListener('touchstart', ev=>{ ovs=null; if(!document.getElementById('tdock') || $layer.innerHTML.trim()) return;
+  ovs={y0:ev.touches[0].clientY, top:scrollY<=0, bot:dockSpare()<=1, done:false}; }, {passive:true});
+document.addEventListener('touchmove', ev=>{ if(!ovs || ovs.done) return; const dy=ev.touches[0].clientY-ovs.y0;
+  if((ovs.top && dy>18 && scrollY<=0) || (ovs.bot && dy<-18 && dockSpare()<=1)){ ovs.done=true; hopOnce(); } }, {passive:true});
+
+/* «назад»: кнопка «‹» экрана бывает и не data-act="nav" (упражнение: ex-back) — раньше системный «назад» и свайп там не работали */
+goBack = function(){
+  if($layer.querySelector('.shade:not(.ghost)')){ dismissSheet(); return true; }
+  const bk=$main.querySelector('button.back');   /* у всех вложенных экранов «‹» — button.back; на верхнем уровне её нет */
+  if(bk){ bk.click(); return true; }
+  return false;
+};
+/* ===== ЖЕСТЫ (Android и iPhone): свайп по вкладкам, «назад» вправо, режимы таймера ===== */
+const TABS=['list','cal','progs','clock'];
+function curTab(){ const b=[...document.querySelectorAll('nav button')], i=b.findIndex(x=>x.classList.contains('on')); return {b, i}; }
+let hg=null;
+document.addEventListener('touchstart', ev=>{
+  hg=null; if(ev.touches.length>1 || sDrag || drag) return;
+  const t=ev.target, x=ev.touches[0].clientX, y=ev.touches[0].clientY;
+  if($layer.innerHTML.trim() && $layer.querySelector('.shade:not(.ghost)')) return;
+  if(t.closest('input,textarea,[contenteditable="plaintext-only"],[contenteditable="true"],.tbox,.set,.clk-stp')) return;
+  let kind=null;
+  if(t.closest('nav')) kind='tabs';
+  else if(st.screen==='clock' && $main.contains(t)) kind='mode';
+  else if(navPos().d>0 && ($main.contains(t) || t.closest('#dockhost')) && !t.closest('.sw-wrap.act') && !document.querySelector('.sw-wrap.act')) kind='back';
+  if(kind) hg={kind, x0:x, y0:y, t0:Date.now(), on:false, dx:0};
+}, {passive:true});
+document.addEventListener('touchmove', ev=>{
+  if(!hg) return; const dx=ev.touches[0].clientX-hg.x0, dy=ev.touches[0].clientY-hg.y0;
+  if(!hg.on){ if(Math.abs(dx)<12 && Math.abs(dy)<12) return;
+    if(Math.abs(dy)>Math.abs(dx)*.6 || (hg.kind==='back' && dx<0) || sDrag){ hg=null; return; }
+    hg.on=true; if(hg.kind==='back'){ $main.style.transition='none'; } }
+  hg.dx=dx;
+  if(hg.kind==='back'){ const v=Math.max(0,dx), d=document.getElementById('tdock');
+    $main.style.transform=`translateX(${v}px)`; if(d) d.style.transform=`translateX(${v}px)`; }
+}, {passive:true});
+function hgEnd(){
+  const g=hg; hg=null; if(!g || !g.on) return;
+  const v=g.dx/Math.max(1, Date.now()-g.t0);
+  if(g.kind==='tabs'){ if(Math.abs(g.dx)<40) return; const {b,i}=curTab(); const j=i+(g.dx<0?1:-1); if(i>=0 && b[j]) b[j].click(); return; }
+  if(g.kind==='mode'){ if(Math.abs(g.dx)<50 && Math.abs(v)<.4) return; const ms=['timer','tabata','sw'], i=ms.indexOf(CLK.mode), j=i+(g.dx<0?1:-1);
+    if(j<0||j>=ms.length) return; clkSwitch(ms[j], g.dx<0?1:-1); return; }
+  /* назад */
+  const d=document.getElementById('tdock'), els=[$main, d].filter(Boolean);
+  if(g.dx>Math.min(110, innerWidth*.3) || (g.dx>30 && v>.45)){
+    els.forEach(e=>{ e.style.transition='transform .18s cubic-bezier(.3,.6,.4,1)'; e.style.transform=`translateX(${innerWidth}px)`; });
+    setTimeout(()=>{ els.forEach(e=>{ e.style.transition='none'; e.style.transform=''; }); goBack(); requestAnimationFrame(()=>els.forEach(e=>{ if(e.isConnected) e.style.transition=''; })); }, 180);
+  } else { els.forEach(e=>{ e.style.transition='transform .22s cubic-bezier(.2,.85,.25,1)'; e.style.transform=''; }); setTimeout(()=>els.forEach(e=>e.style.transition=''), 240); }
+}
+document.addEventListener('touchend', hgEnd); document.addEventListener('touchcancel', hgEnd);
+
+/* ===== СВОЁ ОКНО ДАТЫ (вместо системного календаря): сетка месяца как во вкладке «Календарь»,
+   маркеры — дни с тренировками, выбранная дата обведена чернилами. «‹ Назад» / смахнуть — вернуться без изменений ===== */
+const dShort = d=>`${d.slice(8,10)}.${d.slice(5,7)}.${d.slice(2,4)}`;
+const dpHand = d=>`<span class="dp-hand"><span class="dp-d">${dShort(d)}</span><small>${wd(d)}</small></span>`;
+let DP=null, EW=null;
+function ewSheet(w, dr){
+  EW={id:w.id, ...dr};
+  sheet(`${bar('Тренировка', L('close'), R('ew-save'))}
+    <input type="hidden" id="ew-date" value="${EW.date}">
+    <button class="dp-row" data-act="dp-open" data-for="ew"><span class="dp-l">Дата</span>${dpHand(EW.date)}<span class="chev">${CHEV}</span></button>
+    <div class="field"><label for="ew-title">Название</label><input type="text" id="ew-title" value="${esc(EW.title)}"></div>
+    <div class="field"><label for="ew-note">Заметка дня</label><input type="text" id="ew-note" value="${esc(EW.note)}" placeholder="например: болело плечо"></div>
+    <div class="field"><label>Маркер</label><div class="bandrow">${Object.keys(HL).map(k=>`<button class="chip ${kindOf(w)===k?'on':''}" data-act="ew-hl" data-k="${k}"><i class="sw" style="background:var(--hl-${k})"></i>${HL[k]}</button>`).join('')}</div></div>`);
+}
+function dateSheet(){
+  const [Y,M]=DP.month.split('-').map(Number), first=new Date(Y,M-1,1), d=new Date(first); d.setDate(1-((first.getDay()+6)%7));
+  const byDate={}; workouts.forEach(w=>(byDate[w.date]=byDate[w.date]||[]).push(w));
+  let cells=['пн','вт','ср','чт','пт','сб','вс'].map((x,i)=>`<div class="wh ${i>4?'we':''}">${x}</div>`).join('');
+  for(let wk=0; wk<6; wk++){ if(wk>0 && d.getMonth()!==M-1 && d>first) break;
+    for(let i=0;i<7;i++){ const k=iso(d), ws=byDate[k]||[], out=d.getMonth()!==M-1;
+      cells+=`<button class="cal-cell ${out?'out':''} ${k===TODAY?'today':''} ${k===DP.cur?'dp-on':''}" data-act="dp-day" data-d="${k}">${ws.slice(0,2).map(w=>hlSpan(w)).join('')}<span class="n">${d.getDate()}</span></button>`;
+      d.setDate(d.getDate()+1); } }
+  const thisM=TODAY.slice(0,7);
+  sheet(`${bar('Дата', L('dp-back', `<span class="back">${CHEV}Назад</span>`))}
+    <div class="cal-head dp-head"><span class="arrows"><button data-act="dp-step" data-d="-1" aria-label="Предыдущий месяц">${IC_PREV}</button><span class="cal-title">${MONTHS[M-1]}${Y!==+TODAY.slice(0,4)?' '+Y:''}</span><button data-act="dp-step" data-d="1" aria-label="Следующий месяц">${IC_NEXT}</button></span>
+      ${DP.month!==thisM?'<button class="today-btn" data-act="dp-today">Сегодня</button>':''}</div>
+    <div class="cal dp-cal" id="dp-cal">${cells}</div>`);
+}
+function dpBack(pick){
+  const f=DP.for, dt=pick||DP.cur; DP=null;
+  if(f==='nw') newSheet(dt);
+  else { const w=W(EW.id); if(w) ewSheet(w, {...EW, date:dt}); else close(); }
+}
+function dpStep(n){ const [Y,M]=DP.month.split('-').map(Number); DP.month=iso(new Date(Y,M-1+n,1)).slice(0,7); dateSheet();
+  const c=document.getElementById('dp-cal'); if(c && !RM()) c.animate([{transform:`translateX(${n*16}%)`, opacity:0},{transform:'none', opacity:1}], {duration:240, easing:'cubic-bezier(.2,.85,.25,1)'}); }
+document.addEventListener('click', ev=>{
+  const b=ev.target.closest('[data-act^="dp-"]'); if(!b) return; const a=b.dataset.act;
+  if(a==='dp-open'){ const f=b.dataset.for;
+    if(f==='ew'){ EW.title=(document.getElementById('ew-title')||{}).value??EW.title; EW.note=(document.getElementById('ew-note')||{}).value??EW.note; }
+    const cur=document.getElementById(f+'-date').value||TODAY; blurLayer(); DP={for:f, cur, month:cur.slice(0,7)}; dateSheet(); }
+  else if(a==='dp-back') dpBack();
+  else if(a==='dp-day'){ try{navigator.vibrate&&navigator.vibrate(8)}catch(e){} DP.cur=b.dataset.d; document.querySelectorAll('#dp-cal .dp-on').forEach(x=>x.classList.remove('dp-on')); b.classList.add('dp-on');
+    const d=b.dataset.d; setTimeout(()=>{ if(DP) dpBack(d); }, 160); }
+  else if(a==='dp-step') dpStep(+b.dataset.d);
+  else if(a==='dp-today'){ DP.month=TODAY.slice(0,7); dateSheet(); }
+});
+/* месяц в окне даты — смахнуть влево/вправо */
+let dpx=null;
+document.addEventListener('touchstart', ev=>{ const c=ev.target.closest('#dp-cal'); dpx=c?{x:ev.touches[0].clientX, y:ev.touches[0].clientY}:null; }, {passive:true});
+document.addEventListener('touchend', ev=>{ if(!dpx||!DP) return; const t=ev.changedTouches[0], dx=t.clientX-dpx.x, dy=t.clientY-dpx.y; dpx=null;
+  if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)*1.5) dpStep(dx<0?1:-1); });
+document.head.insertAdjacentHTML('beforeend',`<style>
+/* строка даты: подпись слева, дата рукописная, «сегодня»-обводка чернилами */
+.dp-row{display:flex;align-items:center;gap:12px;width:100%;box-sizing:border-box;text-align:left;padding:6px 2px 10px;border-bottom:1.5px solid var(--ink-soft)}
+.dp-row .dp-l{font-family:var(--ui);font-size:15px;color:var(--muted);flex:1}
+.dp-row .chev svg{width:14px;height:14px;fill:none;stroke:var(--muted);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.dp-row:active{opacity:.6}
+.dp-hand{display:flex;align-items:baseline;gap:8px;font-family:var(--hand);font-weight:var(--hand-w)!important;font-size-adjust:var(--fsa);color:var(--ink);filter:url(#ink)}
+.dp-hand .dp-d{position:relative;font-size:26px;font-weight:700!important;padding:0 6px}
+.dp-hand .dp-d::after{content:'';position:absolute;inset:-2px -1px;border:1.8px solid var(--ink);border-radius:3px 7px 3px 7px;transform:skewX(-10deg)}
+.dp-hand small{font-size:19px;color:var(--ink-soft)}
+.dp-cal{grid-template-columns:repeat(7,1fr)!important;margin-top:2px}
+.dp-cal .cal-cell.dp-on{background:none}
+.dp-cal .cal-cell.dp-on::before{content:'';position:absolute;left:10%;right:10%;top:8%;bottom:8%;border:2.2px solid var(--tim);border-radius:52% 46% 54% 44%/56% 50% 48% 52%;transform:rotate(-6deg);z-index:2;pointer-events:none;filter:url(#ink)}
+.dp-head{margin:0 0 4px}
+/* «Записать тренировку» — бумага и чернила */
+.nw-blank{background:transparent!important;border:1.6px solid var(--ink-soft);border-radius:6px 14px 8px 12px;padding:12px 14px!important;margin-top:2px!important}
+.nw-blank .lead{background:none!important;width:40px!important;height:44px!important;border-radius:0!important}
+.nw-blank .lead svg{width:36px!important;height:40px!important;stroke:var(--ink)!important;stroke-width:1.5!important;filter:url(#ink)}
+.nw-blank b{font-family:var(--hand)!important;font-weight:700!important;font-size-adjust:var(--fsa);font-size:25px!important;color:var(--ink)!important;filter:url(#ink);line-height:1.1}
+.nw-blank small{font-size:13.5px!important}
+.nw-chips{margin:-2px 0 2px 2px!important;gap:2px 10px!important;font-size:14px!important}
+.nw-chips .chip{background:none!important;padding:2px 0!important;min-height:34px!important;font-family:var(--hand)!important;font-weight:var(--hand-w)!important;font-size-adjust:var(--fsa);font-size:20px!important;color:var(--note)!important;
+  text-decoration:underline dotted;text-decoration-thickness:1.5px;text-underline-offset:5px;filter:url(#ink)}
+.nw-prog{background:transparent!important;border-radius:0!important;overflow:visible!important;margin-top:6px}
+.nw-ph{flex-wrap:wrap;padding:0 2px 8px!important;border-bottom:1.5px solid var(--ink-soft)!important;row-gap:0!important}
+.nw-ph .nw-pl{flex:1 0 100%;font-family:var(--ui);font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.02em}
+.nw-ph b{font-family:var(--hand)!important;font-weight:700!important;font-size-adjust:var(--fsa);font-size:24px!important;color:var(--ink)!important;filter:url(#ink)}
+.nw-prog .pick{padding:0 2px 0 18px!important;background:none!important}
+.nw-prog .pick button{border-bottom:1.5px solid var(--ink-faint)!important}
+.nw-prog .pick .pd>span{font-family:var(--hand);font-weight:var(--hand-w)!important;font-size-adjust:var(--fsa);font-size:22px;color:var(--ink);filter:url(#ink)}
+.nw-prog .pick .nx{font-family:var(--hand);font-size-adjust:var(--fsa);font-size:18px!important;color:var(--tim)!important;filter:url(#ink);white-space:nowrap}
+</style>`);
 </script>
 <script>if('serviceWorker' in navigator) addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));</script>
 </body>
