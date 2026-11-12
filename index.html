@@ -564,6 +564,9 @@ svg.cup{width:22px;height:22px;fill:none;stroke:var(--ink);stroke-width:1.9;stro
 .page{padding-bottom:calc(150px + env(safe-area-inset-bottom,0px))!important}
 /* v23: клавиатура не сжимает страницу (нет белой вспышки) — окно поднимается на её высоту */
 .shade{bottom:var(--kb,0px)}
+/* v37: нижний отступ шторки уже включает полосу навигации — над клавиатурой её не добавлять; в вебе клавиатура приходит одним скачком → плавно догоняем */
+.shade{bottom:max(0px,calc(var(--kb,0px) - env(safe-area-inset-bottom,0px)))}
+:root:not(.native) .shade{transition:bottom .26s cubic-bezier(.2,.85,.25,1)}
 .pick .nx{color:var(--tint)}
 /* v23: заголовок окна не налезает на «Отмена» на узком экране — переносится */
 .sheet-bar{grid-template-columns:minmax(max-content,1fr) minmax(0,auto) minmax(max-content,1fr)!important;column-gap:10px}
@@ -769,6 +772,16 @@ applyPers();
 /* v28: ТАЙМЕР-ТЮНЕР. Плашка внизу → шторка: пологая дуга засечек (5 с короткая, 15 с средняя, 30 с высокая), оранжевая булавка по центру.
    Смахивание влево-вправо двигает шкалу (с инерцией, блок наклоняется по движению). Масштаб √t: чем меньше осталось, тем шире деления.
    Отсчёт — от метки конца (end), не сбивается при блокировке. Конец: вибрация + сигнал. «Записать» — отдых между крестиками или в кардио. */
+/* рукописные значки кнопок (чернила, как крестики) */
+const HI = {
+  play:'<path d="M8.2 5.3C7.7 9.9 7.8 14.4 8.3 18.8C11.9 16.7 15.5 14.4 18.9 12.1C15.4 9.7 11.9 7.4 8.2 5.3Z"/>',
+  pause:'<path d="M8.6 5.6C8.4 10 8.5 14.4 8.8 18.5M15.3 5.4C15.5 9.8 15.4 14.2 15.1 18.6"/>',
+  stop:'<path d="M6.6 6.9C10.2 6.4 13.8 6.5 17.3 7C17.7 10.5 17.6 13.9 17.2 17.3C13.6 17.8 10 17.7 6.7 17.2C6.3 13.7 6.3 10.3 6.6 6.9Z"/>',
+  again:'<path d="M18.6 12.6C18.4 16.3 15.4 19.1 11.8 19C8.2 18.9 5.3 15.9 5.4 12.2C5.5 8.6 8.5 5.7 12.1 5.8C13.8 5.8 15.3 6.5 16.4 7.6"/><path d="M16.9 3.9C16.8 5.2 16.7 6.5 16.6 7.8C15.3 7.8 14.1 7.9 12.8 8"/>',
+  lap:'<path d="M7 20.6C6.8 14.6 6.9 8.6 7.2 3.9"/><path d="M7.2 4.7C10 3.5 12.4 5.9 15.2 4.8C16.3 4.4 17.3 4.2 18.4 4.5C18.2 7.2 18.2 9.7 18.5 12.1C15.6 11.5 13.2 13.5 10.4 12.7C9.3 12.4 8.2 12.4 7.2 12.8"/>',
+  pen:'<path d="M5.1 19.3C5.4 17.9 5.8 16.4 6.1 15L16.2 4.9C17 4.1 18.2 4.1 19 4.9L19.3 5.2C20.1 6 20.1 7.2 19.3 8L9.2 18.1C7.8 18.6 6.5 18.9 5.1 19.3Z"/><path d="M14.5 6.8C15.5 7.8 16.4 8.7 17.4 9.7"/>'
+};
+const HB = (act, ic, label, main)=>`<button class="hb${main?' main':''}" data-act="${act}" aria-label="${label}"><svg viewBox="0 0 24 24">${HI[ic]}</svg></button>`;
 let REST = {pick:90, end:0, dur:0, left:0, done:0};
 try{ const v=JSON.parse(localStorage.getItem('xset-timer')||'null'); if(v) REST={...REST, ...v}; }catch(e){}
 const restSave = ()=>{ try{ localStorage.setItem('xset-timer', JSON.stringify(REST)); }catch(e){} };
@@ -797,9 +810,9 @@ function dockInner(){
     <div class="tbody"><div class="tin">
       <div class="tbox" id="tbox"><div id="tsvg">${tunerSVG(run||paused?v:REST.pick, run||paused)}</div></div>
       <div class="thint">${run?(v<=10?'время истекает…':'&nbsp;'):paused?'пауза':'смахни шкалу'}</div>
-      <div class="tbtns">${run?`<button data-act="t-pause">пауза</button><button data-act="t-reset">сброс</button>`
-        :paused?`<button class="main" data-act="t-start">дальше</button><button data-act="t-reset">сброс</button>`
-        :`<button class="main" data-act="t-start">старт</button>`}${lg>0?`<button class="main" data-act="t-log" aria-label="Записать ${mmss(lg)}">записать</button>`:''}</div>
+      <div class="tbtns">${run?HB('t-pause','pause','Пауза',1)+HB('t-reset','stop','Сброс')
+        :paused?HB('t-start','play','Дальше',1)+HB('t-reset','stop','Сброс')
+        :HB('t-start',fin?'again':'play',fin?'Заново':'Старт',1)}${lg>0?HB('t-log','pen','Записать '+mmss(lg)):''}</div>
     </div></div>`;
 }
 /* v31: открыть/закрыть = плавно докрутить страницу (таймер привязан к прокрутке, см. dockLayout) */
@@ -1257,12 +1270,14 @@ function renderEx(){
     <div class="foot-acts"><button class="link-danger" style="color:var(--tint)" data-act="${arch?'lib-unarch':'lib-arch'}" data-n="${esc(n)}">${arch?'Вернуть из архива':'Убрать в архив'}</button></div>`;
 }
 /* «+» в «Упражнениях» — как в «Тренировках» и «Программах» */
+/* v37: открывается и из «Упражнений», и прямо из выбора упражнения (st.newFrom='pick': «‹ Назад» к списку, «Записать» — сразу в тренировку/программу).
+   Без автофокуса. Силовое/Кардио переключается на месте (без перерисовки окна): блок «Записывать» плавно раскрывается. */
 function exNewSheet(name=''){
-  sheet(`${bar('Новое упражнение', L('close'), R('exn-save','Готово'))}
-    <div class="seg"><button class="${st.newKind!=='c'?'on':''}" data-act="exn-kind" data-t="s">Силовое</button><button class="${st.newKind==='c'?'on':''}" data-act="exn-kind" data-t="c">Кардио</button></div>
-    <div class="field"><label for="exn-name">Название</label><input type="text" id="exn-name" value="${esc(name)}" placeholder="${st.newKind==='c'?'например: Плавание':'например: Пуловер'}" autocomplete="off"></div>
-    ${st.newKind==='c'?cmSeg(st.cmTmp):''}`);
-  setTimeout(()=>{ const i=document.getElementById('exn-name'); if(i) i.focus({preventScroll:true}); },50);
+  const fp = st.newFrom==='pick', c = st.newKind==='c';
+  sheet(`${bar('Новое упражнение', fp?`<button class="bar-btn l back" data-act="exn-back" aria-label="Назад к списку">${CHEV}</button>`:L('close'), R('exn-save', fp?'Записать':'Готово'))}
+    ${fp&&st.pickFor!=null?'':`<div class="seg"><button class="${!c?'on':''}" data-act="exn-kind" data-t="s">Силовое</button><button class="${c?'on':''}" data-act="exn-kind" data-t="c">Кардио</button></div>`}
+    <div class="field"><label for="exn-name">Название</label><input type="text" id="exn-name" value="${esc(name)}" placeholder="${c?'например: Плавание':'например: Пуловер'}" autocomplete="off" enterkeyhint="done"></div>
+    <div class="exn-cm${c?' on':''}"><div>${cmSeg(st.cmTmp||'m')}</div></div>`);
 }
 function settingsSheet(){
   const n = workouts.length;
@@ -1450,16 +1465,17 @@ function newSheet(date=newDate){
   const p = P(activeProg);
   const last = p && sorted().find(w=>w.date<=date && p.days.some(d=>d.name===w.title));
   const nextI = p && last ? (p.days.findIndex(d=>d.name===last.title)+1)%p.days.length : 0;
+  /* v37: «Чистая страница» — отдельная заметная карточка; тренировки — в рамке своей программы (заголовок рамки = программа);
+     недавнее кардио — мелкими чипами под чистой страницей, а не пунктами списка */
+  const rc = recentCardio(date);
   sheet(`${bar('Записать тренировку', L('close'))}
     <div class="field"><label for="nw-date">Дата</label><input type="date" id="nw-date" value="${date}"></div>
-    ${p?`<div class="cap">Программа тренировок</div>
-    <div class="pick"><button data-act="prog-list"><span>${esc(p.name)}</span><small>Сменить ›</small></button></div>
-    <div class="cap">День программы</div>
-    <div class="pick">${p.days.map((d,i)=>`<button data-act="new-day" data-i="${i}"><span class="pd"><span>${esc(d.name)}</span><small>${d.ex.map(esc).join(', ')}</small></span><small class="nx">${i===nextI?'следующий':''}</small></button>`).join('')}</div>`
-    :`<div class="pick"><button data-act="prog-list"><span>Выбрать программу</span></button></div>`}
-    <div class="cap">Без программы</div>
-    <div class="pick"><button data-act="new-from" data-id="0"><span>Чистая страница</span><small>запишу по ходу</small></button>
-      ${recentCardio(date).map(n=>`<button data-act="new-cardio" data-n="${esc(n)}"><span>${esc(n)}</span><small>${CM_SHORT[cmode(n)]}</small></button>`).join('')}</div>`);
+    <button class="nw-blank" data-act="new-from" data-id="0"><span class="lead">${IC_BLANK}</span><span class="t"><b>Чистая страница</b><small>без программы — запишу по ходу</small></span></button>
+    ${rc.length?`<div class="nw-chips"><span>или сразу</span>${rc.map(n=>`<button class="chip" data-act="new-cardio" data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div>`:''}
+    ${p?`<div class="cap">Тренировка по программе</div>
+    <div class="nw-prog"><div class="nw-ph"><b>${esc(p.name)}</b><button data-act="prog-list">Сменить</button></div>
+      <div class="pick">${p.days.map((d,i)=>`<button data-act="new-day" data-i="${i}"><span class="pd"><span>${esc(d.name)}</span><small>${d.ex.map(esc).join(', ')}</small></span><small class="nx">${i===nextI?'следующая':''}</small></button>`).join('')}</div></div>`
+    :`<div class="cap">Тренировка по программе</div><div class="pick"><button data-act="prog-list"><span>Выбрать программу</span><span class="chev">${CHEV}</span></button></div>`}`);
 }
 function progListSheet(){
   sheet(`${bar('Программа', L('prog-back',`<span class="back">${CHEV}Назад</span>`), `<button class="bar-btn plus" data-act="prog-edit" data-id="" aria-label="Новая программа">${IC_PLUS}</button>`)}
@@ -1471,13 +1487,15 @@ function syncProg(){
   const n=document.getElementById('pg-name'); if(n) progEdit.name=n.value;
   progEdit.days.forEach((d,i)=>{const x=document.getElementById('pg-day-'+i); if(x) d.name=x.value;});
 }
+/* v37: подсказки названий дней — разные (ноги / спина / грудь …), подпись «День N» — над полем, как у остальных полей */
+const DAY_PH = ['например: Ноги','например: Спина','например: Грудь','например: Плечи','например: Руки','например: Пресс','например: Кардио'];
 function progSheet(){
   const e = progEdit;
   sheet(`${bar(e.id?'Программа':'Новая программа', L('pg-cancel'), R('pg-save','Сохранить'))}
     <div class="field"><label for="pg-name">Название</label><input type="text" id="pg-name" value="${esc(e.name)}" placeholder="например: Фулбоди"></div>
     ${e.days.map((d,i)=>`<div class="field" style="border:2px solid var(--ink-soft);border-radius:14px;padding:10px 12px;gap:6px">
-      <div style="display:flex;gap:8px;align-items:center"><label for="pg-day-${i}" style="flex:none">День ${i+1}</label><input type="text" id="pg-day-${i}" value="${esc(d.name)}" placeholder="например: Ноги">
-        <button class="icon-btn" data-act="pg-del-day" data-i="${i}" aria-label="Убрать день">${CROSS}</button></div>
+      <div class="pg-dh"><label for="pg-day-${i}">День ${i+1}</label><button class="icon-btn" data-act="pg-del-day" data-i="${i}" aria-label="Убрать день">${CROSS}</button></div>
+      <input type="text" id="pg-day-${i}" class="pg-dn" value="${esc(d.name)}" placeholder="${DAY_PH[i%DAY_PH.length]}">
       ${d.ex.map((n,j)=>`<div style="display:flex;align-items:center;gap:6px"><span class="num" style="width:24px;height:24px;font-size:16px">${j+1}</span><span style="flex:1">${esc(n)}</span>
         <button class="icon-btn" data-act="pg-del-ex" data-i="${i}" data-j="${j}" aria-label="Убрать упражнение">${CROSS}</button></div>`).join('')}
       <button class="add-ex" data-act="pg-add-ex" data-i="${i}" style="margin:0">+ упражнение</button></div>`).join('')}
@@ -1496,8 +1514,7 @@ function cardioPick(ql){
   const items = cardioLib.filter(n=>!archived.has(n)&&!hidden.has(n)&&(!ql||matches(n,ql)));
   sheet(`${bar(st.pickFor!=null?'Упражнение':'Добавить', L('pick-cancel'))}${segHTML()}
     <div class="search">${SEARCH_ICON}<input type="search" id="pick-q" placeholder="поиск…" value="${esc(ql)}" aria-label="Поиск" autocomplete="off"></div>
-    <div class="pick">${items.map(n=>`<button data-act="pick-cardio" data-n="${esc(n)}"><span>${ql?hl(n,ql):esc(n)}</span><small>${CM_SHORT[cmode(n)]}</small></button>`).join('')}
-    ${ql&&!cardioLib.some(n=>n.toLowerCase()===ql.toLowerCase())?`<button data-act="pick-cardio" data-n="${esc(ql)}">+ «${esc(ql)}» — новое кардио</button>`:''}</div>`);
+    <div class="pick">${ql&&cardioLib.some(n=>n.toLowerCase()===ql.toLowerCase())?'':writeNewRow(ql)}${items.map(n=>`<button data-act="pick-cardio" data-n="${esc(n)}"><span>${ql?hl(n,ql):esc(n)}</span><small>${CM_SHORT[cmode(n)]}</small></button>`).join('')}</div>`);
 }
 function cardioSheet(k){
   const c = W(st.open).cardio[k];
@@ -1515,9 +1532,11 @@ function pickSheet(q=''){
   const exact = allNames(true).concat(all).some(x=>x.n.toLowerCase()===ql.toLowerCase());
   sheet(`${bar(st.pickFor!=null?'Упражнение':'Добавить', L('pick-cancel'))}${segHTML()}
     <div class="search">${SEARCH_ICON}<input type="search" id="pick-q" placeholder="начните вводить: «жим лёж»…" value="${esc(q)}" aria-label="Поиск упражнения" autocomplete="off"></div>
-    <div class="pick" id="pick-list">${items.map(x=>`<button data-act="pick-ex" data-n="${esc(x.n)}"><span>${ql?hl(x.n,ql):esc(x.n)}</span><small>${x.last?fmt(x.last):'новое'}</small></button>`).join('')}
-    ${ql&&!exact?`<button data-act="pick-new">+ «${esc(ql)}» — новое упражнение</button>`:''}</div>`);
+    <div class="pick" id="pick-list">${ql&&exact?'':writeNewRow(ql)}${items.map(x=>`<button data-act="pick-ex" data-n="${esc(x.n)}"><span>${ql?hl(x.n,ql):esc(x.n)}</span><small>${x.last?fmt(x.last):''}</small></button>`).join('')}</div>`);
 }
+/* v37: «✎ Записать новое…» — первая строка списка выбора: новое упражнение создаётся прямо отсюда (с введённым в поиск названием) */
+const IC_PEN = '<svg class="pen" viewBox="0 0 24 24"><path d="M4 20l1.2-4.6L16.6 4a2 2 0 0 1 2.8 0l.6.6a2 2 0 0 1 0 2.8L8.6 18.8 4 20z"/><path d="M14.5 6.1l3.4 3.4"/></svg>';
+const writeNewRow = ql=>`<button class="pick-new" data-act="pick-write-new">${IC_PEN}<span>${ql?`Записать новое: «${esc(ql)}»`:'Записать новое…'}</span></button>`;
 
 document.addEventListener('input', ev=>{
   /* v19.4: при вводе меняется только список, окно и поле остаются на месте (раньше перерисовывалось всё окно — скакало) */
@@ -1688,14 +1707,14 @@ document.addEventListener('click', ev=>{
     case 'pg-add-day': syncProg(); progEdit.days.push({name:'',ex:[]}); progSheet(); break;
     case 'pg-del-day': syncProg(); progEdit.days.splice(+b.dataset.i,1); progSheet(); break;
     case 'pg-del-ex': syncProg(); progEdit.days[+b.dataset.i].ex.splice(+b.dataset.j,1); progSheet(); break;
-    case 'pg-add-ex': syncProg(); st.pickFor=+b.dataset.i; pickSheet(); setTimeout(()=>{const i=document.getElementById('pick-q'); if(i) i.focus({preventScroll:true});},50); break;
+    case 'pg-add-ex': syncProg(); st.pickFor=+b.dataset.i; pickSheet(); break;
     case 'pg-del': if(!progEdit.confirmDel){ syncProg(); progEdit.confirmDel=true; progSheet(); break; }
       programs=programs.filter(p=>p.id!==progEdit.id); if(activeProg===progEdit.id) activeProg=programs[0]?programs[0].id:null;
       if(progFromTab){ close(); st.screen='progs'; render(); } else progListSheet(); break;
     case 'pg-save': { syncProg(); const e=progEdit; e.name=e.name.trim()||'Моя программа'; e.days=e.days.filter(d=>d.name.trim()||d.ex.length).map((d,i)=>({name:d.name.trim()||`День ${i+1}`,ex:d.ex}));
       delete e.confirmDel; if(e.id){ programs=programs.map(p=>p.id===e.id?e:p); } else { e.id='p'+nextId(); programs.push(e); activeProg=e.id; }
       if(progFromTab){ close(); st.prog=e.id; st.screen='prog'; render(); scrollTo(0,0); } else progListSheet(); break; }
-    case 'add-ex': st.pickFor=null; pickSheet(); setTimeout(()=>{const i=document.getElementById('pick-q'); if(i) i.focus({preventScroll:true});},50); break;
+    case 'add-ex': st.pickFor=null; pickSheet(); break;
     case 'pick-new': case 'pick-ex': {
       const n = a==='pick-new' ? document.getElementById('pick-q').value.trim() : b.dataset.n; hidden.delete(n);
       if(a==='pick-new'){ if(archived.has(n)) archived.delete(n); else if(!allNames().some(x=>x.n===n)) mineLib.push(n); }
@@ -1714,12 +1733,24 @@ document.addEventListener('click', ev=>{
         if(st.libTab==='c'){ if(!cardioLib.includes(n)) cardioLib.push(n); } else if(!allNames().some(x=>x.n===n)) mineLib.push(n);
         st.libQuery=''; } render(); break; }
     case 'lib-tab': st.libTab=b.dataset.t; render(); break;
-    case 'ex-new': st.newKind=st.libTab==='c'?'c':'s'; st.cmTmp='m'; exNewSheet(); break;
-    case 'exn-kind': { st.newKind=b.dataset.t; exNewSheet(document.getElementById('exn-name').value); break; }
+    case 'ex-new': st.newFrom=null; st.newKind=st.libTab==='c'?'c':'s'; st.cmTmp='m'; exNewSheet(); break;
+    case 'pick-write-new': st.newFrom='pick'; st.newKind=st.pickFor==null&&st.pickTab==='c'?'c':'s'; st.cmTmp='m';
+      exNewSheet((document.getElementById('pick-q')||{}).value||''); break;
+    case 'exn-back': { const q=(document.getElementById('exn-name')||{}).value||''; st.newFrom=null; if(st.pickFor==null) st.pickTab=st.newKind; pickSheet(q); break; }
+    case 'exn-kind': { st.newKind=b.dataset.t; const c=st.newKind==='c';
+      b.parentNode.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+      const i=document.getElementById('exn-name'); if(i) i.placeholder=c?'например: Плавание':'например: Пуловер';
+      const cm=$layer.querySelector('.exn-cm'); if(cm) cm.classList.toggle('on',c); break; }
     case 'exn-save': { const n=document.getElementById('exn-name').value.trim(); if(!n) break;
       const has = cardioLib.includes(n) || allNames().concat(allNames(true)).some(x=>x.n===n);
       archived.delete(n); const wasHidden=hidden.delete(n);
       if(!has){ if(st.newKind==='c'){ cardioLib.push(n); CMODE[n]=st.cmTmp||'m'; } else mineLib.push(n); }
+      if(st.newFrom==='pick'){ st.newFrom=null;
+        if(st.pickFor!=null){ progEdit.days[st.pickFor].ex.push(n); st.pickFor=null; progSheet(); break; }
+        if(st.newKind==='c' || cardioLib.includes(n)){ w.cardio.push({kind:n,km:0,min:0}); render(); cardioSheet(w.cardio.length-1); break; }
+        const p=prevFor(n,w), pe=p&&p.ex.find(x=>x.name===n);
+        w.ex.push({name:n,sets:pe?planSets(pe.sets):[{r:10,w:0,done:false},{r:10,w:0,done:false},{r:10,w:0,done:false}]});
+        close(); render(); break; }
       st.libTab=st.newKind; st.libQuery=''; close(); render(); toast(has?`«${esc(n)}» уже есть`:`Добавлено: ${esc(n)}`); break; }
     case 'lib-arch': { const n=b.dataset.n; archived.add(n); render(); toast(`«${esc(n)}» в архиве`, `<button data-act="lib-unarch" data-n="${esc(n)}">Вернуть</button>`); break; }
     case 'lib-unarch': archived.delete(b.dataset.n); document.querySelectorAll('.toast').forEach(x=>x.remove()); render(); break;
@@ -1752,7 +1783,7 @@ document.addEventListener('keydown',e=>{
 
 /* ЭТАП 2: ХРАНЕНИЕ НА ТЕЛЕФОНЕ. Всё состояние — одним JSON в localStorage (ключ xset-data), пишется после каждого действия.
    Копия = тот же JSON файлом (Настройки → «Сохранить копию»), загрузка — оттуда же; принимает и data/history.json (массив тренировок). */
-const APP_VER = '1.10';
+const APP_VER = '1.15';
 const DB_KEY = 'xset-data';
 /* ЭТАП 3 (облако): для слияния телефонов у тренировки есть метка изменения upd, у стёртых — tomb[id]=когда стёрта,
    у настроек (программы, база, архив…) — общая метка setUpd. Метки ставит save() сам, сравнивая с прошлым видом (known). */
@@ -2109,8 +2140,9 @@ function dockLayout(){
   const nav=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--navh'))||64;
   pg.style.setProperty('padding-bottom', `${Math.round(nav+h+DOCK_PADC+H+DOCK_GAP)}px`, 'important');
   pg.style.boxSizing='border-box'; pg.style.minHeight='';
-  const need = innerHeight + H - document.documentElement.scrollHeight;
-  if(need>0) pg.style.minHeight = (pg.offsetHeight+need)+'px';
+  /* v37: досчитывать, пока прокрутки не станет ровно H (первый замер искажают элементы вне потока — было открыто на 17–28% при входе) */
+  for(let k=0;k<4;k++){ const need = innerHeight + H - document.documentElement.scrollHeight; if(need<=0.5 && need>-0.5) break; if(need<0 && !pg.style.minHeight) break;
+    pg.style.minHeight = Math.max(0, Math.ceil(pg.offsetHeight+need))+'px'; }
   dockScroll();
 }
 function dockScroll(){
@@ -2121,7 +2153,10 @@ function dockScroll(){
 }
 addEventListener('scroll', dockScroll, {passive:true});
 addEventListener('resize', ()=>setTimeout(dockLayout, 60));
-{ const r1 = render; render = function(){ r1.apply(this, arguments); dockLayout(); }; }
+/* v37: док таймера живёт ВНЕ $main: при переходе $main въезжает трансформом, и position:fixed внутри него привязывался
+   к странице, а не к экрану (короткая тренировка — булавка ехала на 117 px ниже и прыгала на место в конце) */
+const dockHost = document.createElement('div'); dockHost.id='dockhost'; $main.after(dockHost);
+{ const r1 = render; render = function(){ r1.apply(this, arguments); const d=$main.querySelector('#tdock'); dockHost.textContent=''; if(d) dockHost.appendChild(d); dockLayout(); }; }
 /* таймер стоит ровно над вкладками и не перекрывает их */
 const setNavH=()=>{ const n=document.querySelector('nav'); if(n&&n.offsetHeight) document.documentElement.style.setProperty('--navh', n.offsetHeight+'px'); };
 addEventListener('resize', setNavH); addEventListener('load', setNavH); setTimeout(setNavH, 50);
@@ -2203,13 +2238,22 @@ var longFired=false; let lpT=null, lp0=null;
 var dblT=null, eraseT=null;
 /* v24: цифры подхода и кардио — с клавиатуры (поле между «−» и «+»); при фокусе всё выделено, «Готово» — убрать клавиатуру */
 const numOf = v => { const x = parseFloat(String(v).replace(',', '.')); return isFinite(x) ? Math.min(999, Math.max(0, Math.round(x*10)/10)) : 0; };
-document.addEventListener('focusin', ev=>{ const t=ev.target; if(t.matches&&t.matches('input.val')) setTimeout(()=>t.select(),0); });
+/* v37: без синего выделения — каретка в конец числа */
+document.addEventListener('focusin', ev=>{ const t=ev.target; if(t.matches&&t.matches('input.val')) setTimeout(()=>{ try{ const n=t.value.length; t.setSelectionRange(n,n); }catch(e){} },0); });
 document.addEventListener('keydown', ev=>{ if(ev.key==='Enter' && ev.target.matches && ev.target.matches('input.val')) ev.target.blur(); });
 document.addEventListener('input', ev=>{ const t=ev.target;
   if(t.dataset && t.dataset.in && edit){ t.value=t.value.replace(/[^\d.,]/g,''); const k=t.dataset.in, v=numOf(t.value); edit[k] = k==='r' ? Math.max(1, Math.round(v)) : v; edit.confirmDel=false; }
   if(t.dataset && t.dataset.cin){ t.value=t.value.replace(/[^\d.,]/g,''); const w=W(st.open), c=w&&w.cardio[+t.dataset.k]; if(c){ c[t.dataset.cin]=numOf(t.value); render(); } } });
 /* v23: клавиатура ПОВЕРХ страницы (viewport interactive-widget=overlays-content) — окно не сжимается, нет белой вспышки; шторку поднимаем на высоту клавиатуры */
-if(window.visualViewport){ const kb=()=>{ const h=Math.max(0, Math.round(innerHeight - visualViewport.height - visualViewport.offsetTop)); document.documentElement.style.setProperty('--kb', (h>80?h:0)+'px'); };
+/* v37: на Android высоту клавиатуры шлёт MainActivity на каждом кадре её анимации (окно не сжимается) — шторка едет вместе с ней */
+window.__kb = px=>{ px=Math.max(0,px|0); document.documentElement.style.setProperty('--kb', px+'px');
+  /* клавиатура лежит поверх (окно не сжимается) → поле ввода держим над ней сами, кадр за кадром */
+  const a=document.activeElement; if(!px || !a || a===document.body) return;
+  const r=a.getBoundingClientRect();
+  if($layer.contains(a)){ const sh=a.closest('.sheet'); if(!sh) return; const sb=sh.getBoundingClientRect().bottom-12; if(r.bottom>sb) sh.scrollTop+=r.bottom-sb; }
+  else { const lim=innerHeight-px-16; if(r.bottom>lim) scrollBy(0, r.bottom-lim); } };
+if(NATIVE) document.documentElement.classList.add('native');
+if(window.visualViewport && !NATIVE){ const kb=()=>{ const h=Math.max(0, Math.round(innerHeight - visualViewport.height - visualViewport.offsetTop)); document.documentElement.style.setProperty('--kb', (h>80?h:0)+'px'); };
   visualViewport.addEventListener('resize', kb); visualViewport.addEventListener('scroll', kb); }
 document.head.insertAdjacentHTML('beforeend','<style>.set{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}</style>');
 document.addEventListener('pointerdown',ev=>{ const b=ev.target.closest('.set[data-act="set"]'); if(!b) return;
@@ -2249,51 +2293,83 @@ function setDragEnd(){
   d.bin.classList.remove('in');
   setTimeout(()=>{ d.wrap.remove(); d.bin.remove(); d.b.classList.remove('set-lifted'); }, 260);
 }
-/* ===== v36: ВКЛАДКА «ТАЙМЕР» (Xtime внутри Xset): Табата / Таймер / Секундомер =====
-   Время считается от меток (start, pausedAt, acc) — переживает перезагрузку. Звук/вибрация на странице; на Android,
-   когда приложение свёрнуто или экран выключен, — нативные будильники на каждую смену фазы (XsetTimer group 'clk'). */
-const CLK_KEY='xset-clock', CLK_DEF={mode:'tabata', tab:{prep:10,work:20,rest:10,rounds:8}, tim:{pick:60}, run:null, laps:[]};
-let CLK=(()=>{ try{ const o=JSON.parse(localStorage.getItem(CLK_KEY)||'{}'); return Object.assign(JSON.parse(JSON.stringify(CLK_DEF)), o); }catch(e){ return JSON.parse(JSON.stringify(CLK_DEF)); } })();
+/* ===== v37: ВКЛАДКА «ТАЙМЕР» (Xtime внутри Xset): Таймер | Табата | Секундомер =====
+   Решение пользователя 12.11: «Таймер» вкладки и док отдыха в тренировке — ОДИН таймер (общее состояние REST), дизайн каждого места свой.
+   У каждого режима своё состояние (табата и секундомер — CLK.runs[m]); переключаться можно всегда, в том числе на паузе.
+   Время считается от меток (start, pausedAt, acc) — переживает перезагрузку. Звук/вибрация на странице; на Android, когда приложение
+   свёрнуто или экран выключен, — нативные будильники: табата — XsetTimer group 'clk', таймер — как у дока (nativeTimerSync). */
+const CLK_KEY='xset-clock', CLK_DEF={mode:'timer', tab:{prep:10,work:20,rest:10,rounds:8}, runs:{tabata:null, sw:null}, laps:[]};
+let CLK=(()=>{ let o={}; try{ o=JSON.parse(localStorage.getItem(CLK_KEY)||'{}'); }catch(e){}
+  const c=Object.assign(JSON.parse(JSON.stringify(CLK_DEF)), o); c.runs=Object.assign({tabata:null, sw:null}, c.runs||{});
+  if(c.run){ if(c.mode==='tabata'||c.mode==='sw') c.runs[c.mode]=c.run; delete c.run; }   /* v36 → v37 */
+  delete c.tim; if(!['timer','tabata','sw'].includes(c.mode)) c.mode='timer'; return c; })();
 const clkSave=()=>{ try{ localStorage.setItem(CLK_KEY, JSON.stringify(CLK)); }catch(e){} };
 const PH_NAME={prep:'подготовка', work:'работа', rest:'отдых'};
 const CLK_X='<svg viewBox="0 0 24 24"><path class="a" d="M4 21C9 14 14 8 21 3"/><path class="b" d="M6 5.5L17.5 18"/></svg>';
-function clkPlan(){
-  if(CLK.mode==='tabata'){ const t=CLK.tab, p=[]; if(t.prep) p.push({k:'prep',d:t.prep});
-    for(let i=1;i<=t.rounds;i++){ p.push({k:'work',d:t.work,r:i}); if(i<t.rounds && t.rest) p.push({k:'rest',d:t.rest,r:i}); } return p; }
-  if(CLK.mode==='timer') return [{k:'work',d:CLK.tim.pick}];
-  return null;
-}
-const clkEl=()=>{ const r=CLK.run; return r ? Math.max(0,((r.pausedAt||Date.now())-r.start-(r.acc||0))/1000) : 0; };
-function clkPos(){ const r=CLK.run, plan=r&&r.plan; if(!plan) return null; const e=clkEl(); let acc=0;
+/* цифры в ячейках постоянной ширины — при смене цифры ничего не сдвигается (рукописный шрифт не моноширинный) */
+const DIG = (s, tail)=>{ let h=''; for(const ch of s) h += /\d/.test(ch) ? `<i class="dg">${ch}</i>` : `<i class="sp">${ch}</i>`; return h+(tail?`<span class="tail">${tail}</span>`:''); };
+const run = m=>CLK.runs[m];
+const clkEl = m=>{ const r=run(m); return r ? Math.max(0,((r.pausedAt||Date.now())-r.start-(r.acc||0))/1000) : 0; };
+function tabPlan(){ const t=CLK.tab, p=[]; if(t.prep) p.push({k:'prep',d:t.prep});
+  for(let i=1;i<=t.rounds;i++){ p.push({k:'work',d:t.work,r:i}); if(i<t.rounds && t.rest) p.push({k:'rest',d:t.rest,r:i}); } return p; }
+function clkPos(){ const r=run('tabata'), plan=r&&r.plan; if(!plan) return null; const e=clkEl('tabata'); let acc=0;
   for(let i=0;i<plan.length;i++){ if(e<acc+plan[i].d) return {i, seg:plan[i], left:acc+plan[i].d-e}; acc+=plan[i].d; }
   return {done:true, i:plan.length}; }
-const fmtSW=s=>{ const m=Math.floor(s/60), x=s-m*60; return `${m}:${String(Math.floor(x)).padStart(2,'0')},${Math.floor((x%1)*10)}`; };
-function clkFace(){
-  const m=CLK.mode, r=CLK.run, paused=r&&r.pausedAt; let big, lab='&nbsp;', rounds='', cls='';
-  if(m==='sw'){ big=fmtSW(clkEl()); if(paused) lab='пауза'; }
-  else { const p=r?clkPos():null;
-    if(!r){ const plan=clkPlan(); big=mmss(plan.reduce((a,s)=>a+s.d,0)); lab = m==='tabata' ? `${CLK.tab.rounds} × ${mmss(CLK.tab.work)}` + (CLK.tab.rest?`, отдых ${mmss(CLK.tab.rest)}`:'') : 'выбери время'; }
-    else if(p.done){ big='0:00'; lab = m==='tabata' ? 'тренировка закончена' : 'время вышло'; cls='fin'; }
-    else { big=mmss(Math.ceil(p.left)); cls=p.seg.k;
-      lab = paused ? 'пауза' : m==='tabata' ? PH_NAME[p.seg.k]+(p.seg.r?`, раунд ${p.seg.r} из ${CLK.tab.rounds}`:'') : (p.left<=10?'время истекает…':'&nbsp;'); }
-    if(m==='tabata'){ const n=CLK.tab.rounds, cur=p&&!p.done?(p.seg.r||0):0;
-      rounds=`<div class="clk-rounds">${Array.from({length:n},(_,i)=>{ const k=i+1, done=(p&&p.done)||(cur&&(k<cur||(k===cur&&p.seg.k==='rest'))), now=cur===k&&p.seg.k==='work';
-        return `<i class="${done?'d':now?'n':''}">${CLK_X}</i>`; }).join('')}</div>`; }
+const swParts = s=>{ const m=Math.floor(s/60), x=s-m*60; return [`${m}:${String(Math.floor(x)).padStart(2,'0')}`, `,${Math.floor((x%1)*10)}`]; };
+const fmtSW = s=>swParts(s).join('');
+/* табата: крупные крестики раундов; НА крестике — время работы, МЕЖДУ крестиками — время отдыха.
+   Идущий отрезок считает своё время вниз (на своём крестике или в своём промежутке). */
+function tabRounds(p){
+  const t=CLK.tab, n=t.rounds, cur=p&&!p.done?(p.seg.r||0):0, k=p&&!p.done?p.seg.k:'';
+  let h='';
+  for(let i=1;i<=n;i++){
+    const done=(p&&p.done)||(cur&&(i<cur||(i===cur&&k==='rest'))), now=cur===i&&k==='work';
+    h += `<span class="cr ${done?'d':now?'n':''}"><i>${CLK_X}</i><sup>${now?mmss(Math.ceil(p.left)):mmss(t.work)}</sup></span>`;
+    if(i<n && t.rest){ const rn=cur===i&&k==='rest', rd=(p&&p.done)||(cur&&(i<cur));
+      h += `<span class="crr ${rn?'n':rd?'d':''}">${rn?mmss(Math.ceil(p.left)):mmss(t.rest)}</span>`; }
   }
-  const run=r&&!paused, done=r&&m!=='sw'&&clkPos().done, canLog=r&&(paused||done)&&clkEl()>=1;
-  const B=(a,t,main)=>`<button class="${main?'main':''}" data-act="${a}">${t}</button>`;
-  const btns = !r ? B('clk-start','старт',1)
-    : done ? B('clk-start','заново',1)+B('clk-log','записать')
-    : run ? (m==='sw'?B('clk-lap','круг'):'')+B('clk-pause','пауза',1)+(m!=='sw'?B('clk-reset','сброс'):'')
-    : B('clk-go','дальше',1)+B('clk-reset','сброс')+(canLog?B('clk-log','записать'):'');
-  return `<div class="clk-face ${cls}"><div class="clk-lab">${lab}</div><div class="clk-big">${big}</div>${rounds}</div><div class="clk-btns">${btns}</div>`;
+  return `<div class="clk-rounds">${h}</div>`;
+}
+function clkFace(){
+  const m=CLK.mode; let big, lab='&nbsp;', extra='', cls='', btns='';
+  if(m==='timer'){
+    const go=restRun(), paused=!go&&REST.left>0, fin=!go&&!paused&&REST.done>0, lg=tLogged();
+    if(go){ const l=restLeft(); big=DIG(mmss(Math.ceil(l))); cls='work'; lab=l<=10?'время истекает…':'&nbsp;'; }
+    else if(paused){ big=DIG(mmss(Math.ceil(REST.left))); lab='пауза'; }
+    else if(fin){ big=DIG('0:00'); lab='время вышло'; cls='fin'; }
+    else { big=DIG(mmss(REST.pick)); lab='выбери время'; }
+    btns = go ? HB('t-pause','pause','Пауза',1)+HB('t-reset','stop','Сброс')
+      : paused ? HB('t-start','play','Дальше',1)+HB('t-reset','stop','Сброс')+(lg>=1?HB('clk-log','pen','Записать'):'')
+      : fin ? HB('t-start','again','Заново',1)+HB('clk-log','pen','Записать')
+      : HB('t-start','play','Старт',1);
+  } else if(m==='tabata'){
+    const r=run('tabata'), paused=r&&r.pausedAt, p=r?clkPos():null;
+    if(!r){ big=DIG(mmss(tabPlan().reduce((a,s)=>a+s.d,0))); lab=`${CLK.tab.rounds} ${plural(CLK.tab.rounds,'раунд','раунда','раундов')}`; }
+    else if(p.done){ big=DIG('0:00'); lab='тренировка закончена'; cls='fin'; }
+    else { big=DIG(mmss(Math.ceil(p.left))); cls=p.seg.k;
+      lab = paused ? 'пауза' : PH_NAME[p.seg.k]+(p.seg.r?`, раунд ${p.seg.r} из ${CLK.tab.rounds}`:''); }
+    extra = tabRounds(p);
+    const done=r&&p.done, canLog=r&&(paused||done)&&clkRoundsDone()>0;
+    btns = !r ? HB('clk-start','play','Старт',1)
+      : done ? HB('clk-start','again','Заново',1)+HB('clk-log','pen','Записать')
+      : !paused ? HB('clk-pause','pause','Пауза',1)+HB('clk-reset','stop','Сброс')
+      : HB('clk-go','play','Дальше',1)+HB('clk-reset','stop','Сброс')+(canLog?HB('clk-log','pen','Записать'):'');
+  } else {
+    const r=run('sw'), paused=r&&r.pausedAt, [a,t]=swParts(clkEl('sw'));
+    big=DIG(a, DIG(t)); if(paused) lab='пауза';
+    btns = !r ? HB('clk-start','play','Старт',1)
+      : !paused ? HB('clk-lap','lap','Круг')+HB('clk-pause','pause','Пауза',1)
+      : HB('clk-go','play','Дальше',1)+HB('clk-reset','stop','Сброс')+(clkEl('sw')>=1?HB('clk-log','pen','Записать'):'');
+  }
+  return `<div class="clk-face ${cls}"><div class="clk-lab">${lab}</div><div class="clk-big">${big}</div>${extra}</div><div class="clk-btns">${btns}</div>`;
 }
 function clkSettings(){
-  const row=(k,n,v,txt)=>`<div class="clk-row"><span>${n}</span><span class="clk-stp"><button data-act="clk-st" data-k="${k}" data-d="-1" aria-label="Меньше">${IC_MINUS}</button><b>${txt}</b><button data-act="clk-st" data-k="${k}" data-d="1" aria-label="Больше">${IC_PLUS}</button></span></div>`;
-  if(CLK.mode==='tabata'){ const t=CLK.tab;
-    return `<div class="group clk-set">${row('work','Работа',t.work,mmss(t.work))}${row('rest','Отдых',t.rest,mmss(t.rest))}${row('rounds','Раунды',t.rounds,t.rounds)}${row('prep','Подготовка',t.prep,mmss(t.prep))}</div>`; }
-  if(CLK.mode==='timer') return `<div class="clk-chips">${[30,60,90,120,180,300,600].map(s=>`<button class="${CLK.tim.pick===s?'on':''}" data-act="clk-pick" data-s="${s}">${mmss(s)}</button>`).join('')}</div>
-      <div class="group clk-set">${row('tim','Своё время',CLK.tim.pick,mmss(CLK.tim.pick))}</div>`;
+  const row=(k,n,txt)=>`<div class="clk-row"><span>${n}</span><span class="clk-stp"><button data-act="clk-st" data-k="${k}" data-d="-1" aria-label="Меньше">${IC_MINUS}</button><b>${txt}</b><button data-act="clk-st" data-k="${k}" data-d="1" aria-label="Больше">${IC_PLUS}</button></span></div>`;
+  if(CLK.mode==='tabata'){ if(run('tabata')) return ''; const t=CLK.tab;
+    return `<div class="group clk-set">${row('work','Работа',mmss(t.work))}${row('rest','Отдых',mmss(t.rest))}${row('rounds','Раунды',t.rounds)}${row('prep','Подготовка',mmss(t.prep))}</div>`; }
+  if(CLK.mode==='timer'){ if(restRun()||REST.left>0) return '';
+    return `<div class="clk-chips">${[30,60,90,120,180,300,600].map(s=>`<button class="${REST.pick===s?'on':''}" data-act="clk-pick" data-s="${s}">${mmss(s)}</button>`).join('')}</div>
+      <div class="group clk-set">${row('tim','Своё время',mmss(REST.pick))}</div>`; }
   return CLK.laps.length ? `<div class="cap">Круги</div><div class="group clk-set">${CLK.laps.map((l,i)=>`<div class="clk-row"><span>Круг ${i+1}</span><b class="clk-lapv">${fmtSW(l)}</b></div>`).reverse().join('')}</div>` : '';
 }
 function renderClock(){
@@ -2301,23 +2377,24 @@ function renderClock(){
   try{ CLK; }catch(e){ $main.innerHTML=''; setTimeout(render,0); return; }
   const m=CLK.mode;
   $main.innerHTML = `<div class="titlebar"><h1>Таймер</h1></div>
-    <div class="seg" style="margin:6px 0 4px">${[['tabata','Табата'],['timer','Таймер'],['sw','Секундомер']].map(([k,n])=>`<button class="${m===k?'on':''}" data-act="clk-mode" data-m="${k}"${CLK.run?' disabled':''}>${n}</button>`).join('')}</div>
-    <div class="clk" id="clk">${clkFace()}</div><div id="clk-set">${CLK.run&&m!=='sw'?'':clkSettings()}</div>`;
+    <div class="seg" style="margin:6px 0 4px">${[['timer','Таймер'],['tabata','Табата'],['sw','Секундомер']].map(([k,n])=>`<button class="${m===k?'on':''}" data-act="clk-mode" data-m="${k}">${n}</button>`).join('')}</div>
+    <div class="clk" id="clk">${clkFace()}</div><div id="clk-set">${clkSettings()}</div>`;
 }
-const STEP={work:[5,5,3600], rest:[5,0,3600], prep:[5,0,120], rounds:[1,1,99], tim:[15,5,5940]};
-function clkDraw(){ const el=document.getElementById('clk'); if(!el) return; const h=clkFace(); if(el._h!==h){ el.innerHTML=h; el._h=h; } }
+const STEP={work:[5,5,3600], rest:[5,0,3600], prep:[5,0,120], rounds:[1,1,99], tim:[15,T_MIN,T_MAX]};
+function clkDraw(){ const el=document.getElementById('clk'); if(!el) return; const h=clkFace(); if(el._h!==h){ el.innerHTML=h; el._h=h; }
+  const s=document.getElementById('clk-set'); if(s){ const hs=clkSettings(); if(s._h!==hs){ s.innerHTML=hs; s._h=hs; } } }
 function clkNative(){ if(!NATIVE) return; const C=window.Capacitor, T=(C.Plugins&&C.Plugins.XsetTimer)||C.registerPlugin('XsetTimer'); if(!T) return;
-  const r=CLK.run; if(!r||r.pausedAt||CLK.mode==='sw'||document.visibilityState==='visible'){ T.stop({group:'clk'}).catch(()=>{}); return; }
+  const r=run('tabata'); if(!r||r.pausedAt||document.visibilityState==='visible'){ T.stop({group:'clk'}).catch(()=>{}); return; }
   const now=Date.now(), base=r.start+(r.acc||0); let acc=0; const ph=[];
   r.plan.forEach((s,i)=>{ acc+=s.d; const at=base+acc*1000; if(at>now){ const nx=r.plan[i+1];
-    ph.push({at, title: nx ? (PH_NAME[nx.k][0].toUpperCase()+PH_NAME[nx.k].slice(1)+(nx.r?` · раунд ${nx.r}`:'')) : (CLK.mode==='tabata'?'Тренировка закончена':'Время вышло'), last: !nx}); } });
-  if(ph.length) T.start({group:'clk', end:ph[ph.length-1].at, title:CLK.mode==='tabata'?'Табата':'Таймер', phases:ph.slice(0,60)}).catch(()=>{});
+    ph.push({at, title: nx ? (PH_NAME[nx.k][0].toUpperCase()+PH_NAME[nx.k].slice(1)+(nx.r?` · раунд ${nx.r}`:'')) : 'Тренировка закончена', last: !nx}); } });
+  if(ph.length) T.start({group:'clk', end:ph[ph.length-1].at, title:'Табата', phases:ph.slice(0,60)}).catch(()=>{});
 }
 document.addEventListener('visibilitychange', clkNative);
 let clkLast={i:-1,s:-1};
 setInterval(()=>{
-  const r=CLK.run; if(!r||r.pausedAt) return;
-  if(CLK.mode!=='sw'){ const p=clkPos();
+  const r=run('tabata');
+  if(r && !r.pausedAt){ const p=clkPos();   /* табата звучит, даже если смотришь другой режим */
     if(p.done){ if(clkLast.i!==-2){ clkLast.i=-2; clkBeep(3); try{navigator.vibrate&&navigator.vibrate([250,120,250,120,400])}catch(e){} } }
     else { const s=Math.ceil(p.left);
       if(p.i!==clkLast.i){ if(clkLast.i>=0){ clkBeep(1,true); try{navigator.vibrate&&navigator.vibrate(300)}catch(e){} } clkLast.i=p.i; }
@@ -2330,52 +2407,73 @@ function clkBeep(n, long){ if(document.visibilityState!=='visible') return; try{
     o.connect(g).connect(actx.destination); o.start(actx.currentTime+d); o.stop(actx.currentTime+d+len+.03); } }catch(e){} }
 function clkAct(a, b){
   try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); actx.resume&&actx.resume(); }catch(e){}
-  const r=CLK.run, now=Date.now();
-  if(a==='clk-mode'){ if(!r){ CLK.mode=b.dataset.m; } }
-  if(a==='clk-start'){ CLK.run={start:now, acc:0, pausedAt:0, plan:clkPlan()}; CLK.laps=[]; clkLast={i:-1,s:-1}; try{navigator.vibrate&&navigator.vibrate(12)}catch(e){} }
+  const m=CLK.mode, r=run(m), now=Date.now();
+  if(a==='clk-mode'){ CLK.mode=b.dataset.m; }
+  if(a==='clk-start' && m!=='timer'){ CLK.runs[m]={start:now, acc:0, pausedAt:0, plan:m==='tabata'?tabPlan():null}; if(m==='sw') CLK.laps=[]; if(m==='tabata') clkLast={i:-1,s:-1}; try{navigator.vibrate&&navigator.vibrate(12)}catch(e){} }
   if(a==='clk-pause' && r){ r.pausedAt=now; }
   if(a==='clk-go' && r){ r.acc=(r.acc||0)+(now-r.pausedAt); r.pausedAt=0; }
-  if(a==='clk-reset'){ CLK.run=null; CLK.laps=[]; }
-  if(a==='clk-lap' && r){ const e=clkEl(), prev=CLK.laps.reduce((x,y)=>x+y,0); CLK.laps.push(e-prev); }
-  if(a==='clk-pick'){ CLK.tim.pick=+b.dataset.s; }
-  if(a==='clk-st'){ const k=b.dataset.k, [st0,mn,mx]=STEP[k], o=k==='tim'?CLK.tim:CLK.tab, f=k==='tim'?'pick':k; o[f]=Math.max(mn,Math.min(mx,(o[f]||0)+(+b.dataset.d)*st0)); }
+  if(a==='clk-reset'){ CLK.runs[m]=null; if(m==='sw') CLK.laps=[]; }
+  if(a==='clk-lap' && r){ const e=clkEl('sw'), prev=CLK.laps.reduce((x,y)=>x+y,0); CLK.laps.push(e-prev); }
+  if(a==='clk-pick'){ REST.pick=+b.dataset.s; REST.done=0; restSave(); }
+  if(a==='clk-st'){ const k=b.dataset.k, [st0,mn,mx]=STEP[k];
+    if(k==='tim'){ REST.pick=Math.max(mn,Math.min(mx,REST.pick+(+b.dataset.d)*st0)); REST.done=0; restSave(); }
+    else CLK.tab[k]=Math.max(mn,Math.min(mx,(CLK.tab[k]||0)+(+b.dataset.d)*st0)); }
   clkSave(); clkNative(); if(st.screen==='clock') render();
 }
 /* «записать»: табата — раунды × мин работы; таймер/секундомер — минуты. В сегодняшнюю тренировку (нет — новая). */
+function clkSec(){ return CLK.mode==='timer' ? tLogged() : Math.round(clkEl(CLK.mode)); }
 function clkLogSheet(){
   const kinds=[...new Set(['Скакалка','Бокс: мешок','Бокс: лапы',...cardioLib])].slice(0,10);
-  const p=CLK.mode!=='sw'?clkPos():null, sec=Math.round(clkEl());
-  const what = CLK.mode==='tabata' ? `${clkRoundsDone()} × ${mmss(CLK.tab.work)}` : mmss(sec);
+  const what = CLK.mode==='tabata' ? `${clkRoundsDone()} × ${mmss(CLK.tab.work)}` : mmss(clkSec());
   sheet(`${bar('Записать '+what, L('t-back','Назад'))}
     <div class="cap">В сегодняшнюю тренировку</div><div class="group">${kinds.map(k=>`<button class="set-row" data-act="clk-log-to" data-k="${esc(k)}"><div><b>${esc(k)}</b></div><span class="chev">${CHEV}</span></button>`).join('')}</div>`);
 }
-function clkRoundsDone(){ const r=CLK.run; if(!r||!r.plan) return 0; const e=clkEl(); let acc=0, n=0; r.plan.forEach(s=>{ acc+=s.d; if(s.k==='work' && e>=acc-0.5) n++; }); return n; }
+function clkRoundsDone(){ const r=run('tabata'); if(!r||!r.plan) return 0; const e=clkEl('tabata'); let acc=0, n=0; r.plan.forEach(s=>{ acc+=s.d; if(s.k==='work' && e>=acc-0.5) n++; }); return n; }
 function clkLogTo(k){
   let w=workouts.filter(x=>x.date===TODAY).sort((a,b)=>b.id-a.id)[0];
   if(!w){ w=copyWorkout(null,TODAY); w.title=k; workouts.push(w); }
   if(!cardioLib.includes(k) && !CARDIO_STD.includes(k)) cardioLib.push(k);
   let c=w.cardio.find(x=>x.kind===k); if(!c){ c={kind:k,km:0,min:0}; w.cardio.push(c); }
-  if(CLK.mode==='tabata' && cmode(k)==='r'){ c.rounds=(c.rounds||0)+clkRoundsDone(); c.min=Math.round(CLK.tab.work/6)/10; }
-  else { const add = CLK.mode==='tabata' ? clkRoundsDone()*CLK.tab.work : clkEl(); c.min=Math.round(((+c.min||0)+add/60)*10)/10; }
-  CLK.run=null; CLK.laps=[]; clkSave(); clkNative(); close(); render(); toast(`${esc(k)}: ${cardioText(c)||'записано'}`);
+  const m=CLK.mode;
+  if(m==='tabata' && cmode(k)==='r'){ c.rounds=(c.rounds||0)+clkRoundsDone(); c.min=Math.round(CLK.tab.work/6)/10; }
+  else { const add = m==='tabata' ? clkRoundsDone()*CLK.tab.work : clkSec(); c.min=Math.round(((+c.min||0)+add/60)*10)/10; }
+  if(m==='timer'){ REST.done=0; REST.end=0; REST.left=0; REST.dur=0; restSave(); nativeTimerSync(); }
+  else { CLK.runs[m]=null; if(m==='sw') CLK.laps=[]; }
+  clkSave(); clkNative(); close(); render(); toast(`${esc(k)}: ${cardioText(c)||'записано'}`);
 }
+/* таймер вкладки = таймер дока: старт/пауза/сброс оттуда же — перерисовать вкладку */
+{ const ra = restAct; restAct = function(a){ ra(a); if(st.screen==='clock') render(); }; }
 document.head.insertAdjacentHTML('beforeend',`<style>
 .clk{margin:22px 0 10px;text-align:center}
 .clk-face{display:flex;flex-direction:column;align-items:center}
 .clk-lab{font-family:var(--hand);font-weight:var(--hand-w)!important;font-size-adjust:var(--fsa);font-size:22px;color:var(--muted);filter:url(#ink);min-height:30px}
-.clk-big{font-family:var(--hand);font-weight:700!important;font-size-adjust:var(--fsa);font-size:96px;line-height:1.05;color:var(--ink);font-variant-numeric:tabular-nums;filter:url(#ink);margin:2px 0 6px}
+.clk-big{font-family:var(--hand);font-weight:700!important;font-size-adjust:var(--fsa);font-size:96px;line-height:1.05;color:var(--ink);filter:url(#ink);margin:2px 0 6px;white-space:nowrap}
+.clk-big i{font-style:normal;display:inline-block;text-align:center}
+.clk-big .dg{width:.56em}
+.clk-big .sp{width:.26em}
+.clk-big .tail{font-size:.52em;color:var(--muted);margin-left:.04em}
 .clk-face.work .clk-big,.clk-face.fin .clk-big{color:var(--tim)}
 .clk-face.work .clk-lab{color:var(--tim)}
-.clk-rounds{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 10px;max-width:320px;margin:6px auto 0}
-.clk-rounds i{width:26px;height:26px;display:block}
+.clk-rounds{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:14px 4px;max-width:360px;margin:12px auto 0}
+.clk-rounds .cr{position:relative;display:inline-flex;align-items:flex-start;padding-right:2px}
+.clk-rounds .cr i{width:48px;height:48px;display:block}
 .clk-rounds svg{width:100%;height:100%;fill:none;stroke:var(--ink-soft);stroke-width:2.4;stroke-linecap:round;filter:url(#ink)}
-.clk-rounds i:not(.d) .b{display:none}
-.clk-rounds i.d svg{stroke:var(--ink)}
-.clk-rounds i.n svg{stroke:var(--tim)}
-.clk-btns{display:flex;justify-content:center;gap:28px;margin:18px 0 6px;min-height:44px}
-.clk-btns button{font-family:var(--hand);font-weight:var(--hand-w)!important;font-size-adjust:var(--fsa);font-size:24px;color:var(--muted);filter:url(#ink);padding:8px 4px;min-height:44px}
-.clk-btns button.main{color:var(--tim)}
-.clk-btns button:active{transform:scale(.92)}
+.clk-rounds .cr:not(.d) .b{display:none}
+.clk-rounds .cr.d svg{stroke:var(--ink)}
+.clk-rounds .cr.n svg{stroke:var(--tim)}
+.clk-rounds sup,.clk-rounds .crr{font-family:var(--hand);font-weight:var(--hand-w)!important;font-size-adjust:var(--fsa);filter:url(#ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.clk-rounds sup{font-size:17px;line-height:1;color:var(--ink);margin:-2px 0 0 0}
+.clk-rounds .cr:not(.d):not(.n) sup{color:var(--muted)}
+.clk-rounds .cr.n sup{color:var(--tim)}
+.clk-rounds .crr{font-size:14px;color:var(--muted);opacity:.75;padding:12px 2px 0}
+.clk-rounds .crr.d{opacity:.45}
+.clk-rounds .crr.n{color:var(--tim);opacity:1;font-size:16px}
+.clk-btns{display:flex;justify-content:center;align-items:center;gap:30px;margin:18px 0 6px;min-height:64px}
+.hb{width:52px;height:52px;display:grid;place-items:center;color:var(--muted);padding:0}
+.hb svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;filter:url(#ink)}
+.hb.main{width:64px;height:64px;color:var(--tim)}
+.hb.main svg{width:42px;height:42px;stroke-width:2.1}
+.hb:active{transform:scale(.9)}
 .clk-set{margin-top:14px}
 .clk-row{display:flex;align-items:center;justify-content:space-between;min-height:52px;padding:0 6px 0 16px;font-family:var(--ui);font-size:17px;color:var(--label)}
 .clk-stp{display:flex;align-items:center;gap:4px}
@@ -2386,7 +2484,12 @@ document.head.insertAdjacentHTML('beforeend',`<style>
 .clk-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:14px 0 0}
 .clk-chips button{font-family:var(--ui);font-size:16px;padding:8px 14px;border-radius:18px;background:var(--fill);color:var(--label);min-height:40px;font-variant-numeric:tabular-nums}
 .clk-chips button.on{background:var(--tim);color:var(--tim-ink)}
-.seg button[disabled]{opacity:.45}
+/* док отдыха в тренировке — те же рукописные значки */
+.tdock .tbtns{align-items:center;gap:26px!important}
+.tdock .tbtns .hb{width:46px;height:46px;filter:none}
+.tdock .tbtns .hb svg{width:27px;height:27px}
+.tdock .tbtns .hb.main{width:54px;height:54px}
+.tdock .tbtns .hb.main svg{width:36px;height:36px}
 </style>`);
 /* v33: блокирующий (passive:false) touchmove — ТОЛЬКО на рядах крестиков, не на документе: иначе браузер на каждом
    движении пальца ждёт скрипт и прокрутка «не листается» везде. Застрявшее перетаскивание сбрасывается новым касанием. */
@@ -2436,8 +2539,9 @@ close = function(){
   if(!sd || RM()) return;
   sd.classList.remove('in'); sd.classList.add('ghost'); $layer.appendChild(sd);
   requestAnimationFrame(()=>requestAnimationFrame(()=>{ if(!sd.isConnected) return;
-    sd.style.backgroundColor='transparent'; const sh=sd.querySelector('.sheet'); if(sh) sh.style.transform='translateY(105%)'; }));
-  setTimeout(()=>sd.remove(), 260);
+    sd.style.backgroundColor='transparent'; const sh=sd.querySelector('.sheet'); if(sh) sh.style.transform='translateY(105%)';
+    setTimeout(()=>sd.remove(), 280); }));   /* v37: убирать, когда окно ДОЕХАЛО (отсчёт от начала движения, а не от нажатия) */
+  setTimeout(()=>sd.remove(), 600);
 };
 const TAB = s=> s==='list'||s==='search'?'list' : s==='cal'?'cal' : 'lib';
 const DEPTH = {list:0, cal:0, progs:0, prog:1, exlib:1, ex:2, search:1};
@@ -2449,7 +2553,9 @@ render = function(){
   const a = lastPos, b = navPos(); lastPos = b;
   if(a.k===b.k || a.g!==b.g || a.d===b.d || RM()) return;
   const dir = b.d > a.d ? 1 : -1;
-  $main.animate([{transform:`translateX(${dir*22}%)`, opacity:0}, {transform:'none', opacity:1}], {duration:300, easing:'cubic-bezier(.2,.85,.25,1)'});
+  const kf = [{transform:`translateX(${dir*22}%)`, opacity:0}, {transform:'none', opacity:1}], op = {duration:300, easing:'cubic-bezier(.2,.85,.25,1)'};
+  $main.animate(kf, op);
+  const dk = document.getElementById('tdock'); if(dk) dk.animate(kf, op);   /* v37: док вне $main — въезжает тем же движением */
 };
 const _calStep = calStep;
 calStep = function(n){
@@ -2457,6 +2563,57 @@ calStep = function(n){
   const c = document.getElementById('cal'); if(!c || RM()) return;
   c.animate([{transform:`translateX(${n*16}%)`, opacity:0}, {transform:'none', opacity:1}], {duration:260, easing:'cubic-bezier(.2,.85,.25,1)'});
 };
+/* ===== v37 (отзыв 12.11): окна и клавиатура =====
+   Закрытие окна с открытой клавиатурой — ОДНО движение: сначала снимаем фокус (клавиатура начинает уходить),
+   и в тот же кадр окно уезжает вниз; низ подложки следует за --kb, поэтому они едут вместе.
+   Переход из окна в окно (вложенные: выбор → новое упражнение, программа → список) — высота меняется плавно, без скачка. */
+/* док: высота тела таймера меняется с содержимым (подсказка, «записать») → пересчитать запас прокрутки, иначе булавка приоткрыта/недокрыта */
+{ const rr = restRefresh; restRefresh = function(){ const h=DOCK_H; rr(); dockMeasure(document.getElementById('tdock')); if(Math.abs(DOCK_H-h)>1) dockLayout(); }; }
+const blurLayer = ()=>{ const a=document.activeElement; if(a && $layer.contains(a) && a.blur) a.blur(); };
+{ const c0 = close; close = function(){ blurLayer(); c0(); }; }
+{ const d0 = dismissSheet; dismissSheet = function(){ blurLayer(); d0(); }; }
+{ const s0 = sheet;
+  sheet = function(html){
+    const old = $layer.querySelector('.shade:not(.ghost) .sheet'), oh = old ? old.getBoundingClientRect().height : 0;
+    s0(html);
+    const sh = $layer.querySelector('.shade:not(.ghost) .sheet'); if(!old || !sh || RM()) return;
+    const nh = sh.getBoundingClientRect().height; if(Math.abs(nh-oh) < 2) return;
+    sh.style.overflow = 'hidden';
+    const an = sh.animate([{height:oh+'px'},{height:nh+'px'}], {duration:300, easing:'cubic-bezier(.2,.85,.25,1)'});
+    an.onfinish = an.oncancel = ()=>{ sh.style.overflow=''; };
+  }; }
+document.head.insertAdjacentHTML('beforeend',`<style>
+.sheet .pick button.pick-new{justify-content:flex-start!important;gap:12px;color:var(--tint)}
+.pick-new svg.pen{width:21px;height:21px;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.pick-new span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.exn-cm{display:grid;grid-template-rows:0fr;margin-top:-14px;opacity:0;transition:grid-template-rows .3s cubic-bezier(.2,.85,.25,1),margin-top .3s cubic-bezier(.2,.85,.25,1),opacity .2s}
+.exn-cm>div{min-height:0;overflow:hidden}
+/* v37: при въезде страница (translateX) вылезала за правый край → WebView менял масштаб (innerHeight 853→1015),
+   всё прибитое к низу (таймер, «+») прыгало в конце перехода. clip — не создаёт прокрутку, sticky не ломает */
+html,body{overflow-x:clip}
+.exn-cm.on{grid-template-rows:1fr;margin-top:0;opacity:1}
+/* «Записать тренировку» */
+.nw-blank{display:flex;align-items:center;gap:14px;width:100%;box-sizing:border-box;text-align:left;background:var(--group);border-radius:14px;padding:14px;margin-top:4px}
+.nw-blank .lead{width:44px;height:44px;border-radius:11px;background:var(--tint);display:grid;place-items:center;flex:none}
+.nw-blank .lead svg{width:24px;height:24px;fill:none;stroke:var(--paper);stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.nw-blank .t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.nw-blank b{font-family:var(--ui);font-size:17px;font-weight:600;color:var(--label)}
+.nw-blank small{font-family:var(--ui);font-size:14px;color:var(--muted)}
+.nw-blank:active{opacity:.6}
+.nw-chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px 5px;margin:-4px 0 0 4px;font-family:var(--ui);font-size:13px;color:var(--muted)}
+.nw-chips>span{margin-right:3px}
+.nw-chips .chip{border:0;background:var(--fill);color:var(--label);font-size:13px;padding:4px 10px;border-radius:14px;min-height:28px;white-space:nowrap}
+.nw-prog{background:var(--group);border-radius:12px;overflow:hidden}
+.nw-ph{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px 10px;border-bottom:.5px solid var(--sep)}
+.nw-ph b{font-family:var(--ui);font-size:17px;font-weight:600;color:var(--label);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nw-ph button{font-family:var(--ui);font-size:16px;color:var(--tint);flex:none;min-height:32px}
+.nw-prog .pick{background:transparent;border-radius:0;padding:0 14px 0 30px}
+.pg-dh{display:flex;align-items:center;justify-content:space-between;margin:-6px -6px -8px 0}
+.pg-dh .icon-btn{width:36px;height:36px}
+input.pg-dn{width:100%;box-sizing:border-box}
+.pick .chev svg{width:14px;height:14px;fill:none;stroke:var(--muted);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+</style>`);
+const IC_BLANK = '<svg viewBox="0 0 24 24"><path d="M6 3.5h8.5L19 8v12.5H6z"/><path d="M14.5 3.5V8H19"/></svg>';
 </script>
 <script>if('serviceWorker' in navigator) addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));</script>
 </body>
